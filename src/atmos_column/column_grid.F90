@@ -61,6 +61,7 @@ subroutine column_grid_init(num_lon_in, num_lat_in, longitude_origin, south_to_n
   real :: del_lat, del_lon
   integer :: i, j
   integer :: unit, ierr, io
+
   if(module_is_initialized) return
 
 #ifdef INTERNAL_FILE_NML
