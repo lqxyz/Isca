@@ -362,8 +362,6 @@ class ColumnCodeBase(CodeBase):
     def column_model(self):
         self.compile_flags.append('-DCOLUMN_MODEL')
         self.log.info('USING SINGLE COLUMN MODEL')
-        self.compile_flags.append('-DSOC_NO_COMPILE')
-        self.log.info('SOCRATES compilation disabled.')
 
     def __init__(self, *args, **kwargs):
         super(ColumnCodeBase, self).__init__(*args, **kwargs)
@@ -381,6 +379,19 @@ class DryCodeBase(GreyCodeBase):
     name = 'dry'
     executable_name = 'held_suarez.x'
 
+class ColumnSocratesCodeBase(SocratesCodeBase):
+    """This contains code that will allow one to use socrates radiation scheme in a single column configuration."""
+
+    name = 'column_socrates'
+    executable_name = 'column_soc.x'
+
+    def column_model(self):
+        self.compile_flags.append('-DCOLUMN_MODEL')
+        self.log.info('USING SINGLE COLUMN MODEL')
+
+    def __init__(self, *args, **kwargs):
+        super(ColumnSocratesCodeBase, self).__init__(*args, **kwargs)
+        self.column_model()
 
 
 # class ShallowCodeBase(CodeBase):
