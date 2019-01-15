@@ -362,6 +362,8 @@ class ColumnCodeBase(CodeBase):
     def column_model(self):
         self.compile_flags.append('-DCOLUMN_MODEL')
         self.log.info('USING SINGLE COLUMN MODEL')
+        self.compile_flags.append('-DSOC_NO_COMPILE')
+        self.log.info('SOCRATES compilation disabled.')
 
     def __init__(self, *args, **kwargs):
         super(ColumnCodeBase, self).__init__(*args, **kwargs)

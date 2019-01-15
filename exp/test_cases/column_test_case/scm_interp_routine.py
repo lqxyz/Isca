@@ -4,7 +4,6 @@ from isca import GFDL_BASE
 import os 
 
 
-
 def vinterp(data, vcoord, vlevels):
     
     """ vertical linear interpolation, credit ExeClim/ShareCode"""
@@ -204,15 +203,12 @@ def calc_pfull(pk, bk, psurf, diff_option):
     else:
         print('calc_pfull: '+diff_option+' is NOT a vertical differencing option supported by this script')
 
-
     return pfull 
 
 def scm_interp(filename, varname='ozone_1990', vcoord_option='even_sigma', nlevels=None, 
                  vert_difference_option = 'simmons_and_burridge', psurf=1.e3, pk_input=None, bk_input=None):
 
     # psurf in hPa 
-
-
     ds = xr.open_dataset(filename, decode_times=False)
 
     if vcoord_option != 'input':
@@ -222,14 +218,10 @@ def scm_interp(filename, varname='ozone_1990', vcoord_option='even_sigma', nleve
         bk = bk_input
 
     pfull = calc_pfull(pk, bk, psurf, vert_difference_option)
-    
 
     data = vinterp(ds[varname].values, ds.pfull.values, pfull)
-
-
     ds.coords['pfull_new'] = pfull 
     ds[varname+'_interp'] = (('time', 'pfull_new', 'lat'), data)
-
 
     return ds 
 
@@ -239,4 +231,3 @@ if __name__ == "__main__":
                varname='ozone_1990', 
                nlevels=31)
 
-    
