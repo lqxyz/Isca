@@ -9,7 +9,7 @@ cb = ColumnSocratesCodeBase.from_directory(GFDL_BASE)
 cb.compile()
 
 # create an Experiment object to handle the configuration of model parameters
-exp = Experiment('column_soc_test_exp', codebase=cb)
+exp = Experiment('column_soc_with_cloud', codebase=cb)
 
 inputfiles = [os.path.join(GFDL_BASE,'input/rrtm_input_files/ozone_1990.nc')]
 
@@ -41,6 +41,12 @@ diag.add_field('socrates', 'soc_toa_sw', time_avg=True)
 diag.add_field('socrates', 'soc_flux_lw', time_avg=True)
 diag.add_field('socrates', 'soc_flux_sw', time_avg=True)
 
+diag.add_field('cloud_simple', 'cf', time_avg=True)
+diag.add_field('cloud_simple', 'reff_rad', time_avg=True)
+diag.add_field('cloud_simple', 'frac_liq', time_avg=True)
+diag.add_field('cloud_simple', 'qcl_rad', time_avg=True)
+diag.add_field('cloud_simple', 'simple_rhcrit', time_avg=True)
+diag.add_field('cloud_simple', 'rh_in_cf', time_avg=True)
 
 exp.diag_table = diag
 
@@ -109,18 +115,18 @@ exp.namelist = namelist = Namelist({
         'two_stream_gray': False,
         'do_socrates_radiation': True,
         'convection_scheme': 'SIMPLE_BETTS_MILLER', #Use the simple Betts Miller convection scheme 
-        'do_cloud_simple': False 
+        'do_cloud_simple': True, 
     },
 
     'qe_moist_convection_nml': {
-        'rhbm':0.7, # rh criterion for convection 
-        'Tmin':160., # min temperature for convection scheme look up tables 
-        'Tmax':350.  # max temperature for convection scheme look up tables 
+        'rhbm': 0.7, # rh criterion for convection 
+        'Tmin': 160., # min temperature for convection scheme look up tables 
+        'Tmax': 350.  # max temperature for convection scheme look up tables 
     },
     
     'lscale_cond_nml': {
-        'do_simple':True, # only rain 
-        'do_evap':False,  # no re-evaporation of falling precipitation 
+        'do_simple': True, # only rain 
+        'do_evap': False,  # no re-evaporation of falling precipitation 
     },
 
     'surface_flux_nml': {
@@ -138,15 +144,15 @@ exp.namelist = namelist = Namelist({
     },
 
     'mixed_layer_nml': {
-        'tconst' : 285.,
-        'prescribe_initial_dist':False,
-        'evaporation':True,   
+        'tconst': 285.,
+        'prescribe_initial_dist': False,
+        'evaporation': True,   
         'depth': 2.5,                          #Depth of mixed layer used
         'albedo_value': 0.30,                  #Albedo value used             
     },
     
     'sat_vapor_pres_nml': {
-        'do_simple':True, 
+        'do_simple': True, 
     },
 
     # define pressure coordinate 
