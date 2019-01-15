@@ -18,6 +18,8 @@ use           vert_diff_mod, only: vert_diff_init, gcm_vert_diff_down, gcm_vert_
 
 use two_stream_gray_rad_mod, only: two_stream_gray_rad_init, two_stream_gray_rad_down, two_stream_gray_rad_up, two_stream_gray_rad_end
 
+use        cloud_simple_mod, only: cloud_simple_init, cloud_simple_end, cloud_simple
+
 use         mixed_layer_mod, only: mixed_layer_init, mixed_layer, mixed_layer_end, albedo_calc
 
 use         lscale_cond_mod, only: lscale_cond_init, lscale_cond, lscale_cond_end
@@ -69,6 +71,12 @@ use rayleigh_bottom_drag_mod, only: rayleigh_bottom_drag_init, compute_rayleigh_
     use rrtm_vars
 #endif
 
+#ifdef SOC_NO_COMPILE
+    ! Socrates not included
+#else
+use socrates_interface_mod
+use soc_constants_mod
+#endif
 
 implicit none
 private
@@ -104,9 +112,13 @@ logical :: lwet_convection = .false.
 logical :: do_bm = .false.
 logical :: do_ras = .false.
 
+! Cloud options
+logical :: do_cloud_simple = .false.
+
 !s Radiation options
 logical :: two_stream_gray = .true.
 logical :: do_rrtm_radiation = .false.
+logical :: do_socrates_radiation = .false.
 
 !s MiMA uses damping
 logical :: do_damping = .false.
@@ -138,6 +150,7 @@ real :: raw_bucket = 0.53       ! default raw coefficient for bucket depth LJJ
 ! end RG Add bucket
 
 namelist / idealized_moist_phys_nml / turb, lwet_convection, do_bm, do_ras, roughness_heat,  &
+                                      do_cloud_simple,                                       &
                                       two_stream_gray, do_rrtm_radiation, do_damping,&
                                       mixed_layer_bc, do_simple,                     &
                                       roughness_moist, roughness_mom, do_virtual,    &
@@ -145,8 +158,8 @@ namelist / idealized_moist_phys_nml / turb, lwet_convection, do_bm, do_ras, roug
                                       land_roughness_prefactor,               &
                                       gp_surface, convection_scheme,          &
                                       bucket, init_bucket_depth, init_bucket_depth_land, & !RG Add bucket 
-                                      max_bucket_depth_land, robert_bucket, raw_bucket, simple_surface
-
+                                      max_bucket_depth_land, robert_bucket, raw_bucket, simple_surface, &
+                                      do_socrates_radiation
 
 integer, parameter :: num_time_levels = 2 !RG Add bucket - number of time levels added to allow timestepping in this module
 real, allocatable, dimension(:,:,:)   :: bucket_depth      ! RG Add bucket
@@ -321,6 +334,10 @@ write(stdlog_unit, idealized_moist_phys_nml)
 !s initialise variables for rh_calc
 d622 = rdgas/rvgas
 d378 = 1.-d622
+
+if(do_cloud_simple) then
+  call cloud_simple_init(get_axis_id(), Time)
+end if
 
 !s need to make sure that gray radiation and rrtm radiation are not both called.
 if(two_stream_gray .and. do_rrtm_radiation) &
@@ -706,6 +723,16 @@ if(two_stream_gray) call two_stream_gray_rad_init(is, ie, js, je, num_levels, ge
     endif
 #endif
 
+#ifdef SOC_NO_COMPILE
+    if (do_socrates_radiation) then
+        call error_mesg('idealized_moist_phys','do_socrates_radiation is .true. but compiler flag -D SOC_NO_COMPILE used. Stopping.', FATAL)
+    endif
+#else
+if (do_socrates_radiation) then
+    call socrates_init(is, ie, js, je, num_levels, axes, Time, rad_lat, rad_lonb_2d, rad_latb_2d, Time_step_in, do_cloud_simple)
+endif
+#endif
+
 if(turb) then
    call vert_turb_driver_init (rad_lonb_2d, rad_latb_2d, ie-is+1,je-js+1, &
                  num_levels,get_axis_id(),Time, doing_edt, doing_entrain)
@@ -739,6 +766,8 @@ real, dimension(:,:,:,:),   intent(inout) :: dt_tracers
 real :: delta_t
 real, dimension(size(ug,1), size(ug,2), size(ug,3)) :: tg_tmp, qg_tmp, RH,tg_interp, mc, dt_ug_conv, dt_vg_conv
 
+! Simple cloud scheme variabilies to pass to radiation
+real, dimension(size(ug,1), size(ug,2), size(ug,3))    :: cf_rad, reff_rad, qcl_rad  
 
 real, intent(in) , dimension(:,:,:), optional :: mask
 integer, intent(in) , dimension(:,:),   optional :: kbot
@@ -746,10 +775,9 @@ integer, intent(in) , dimension(:,:),   optional :: kbot
 real, dimension(1,1,1):: tracer, tracertnd
 integer :: nql, nqi, nqa   ! tracer indices for stratiform clouds
 
-
-integer :: k
-real, dimension(size(ug,1), size(ug,2), size(ug,3)) :: dt_tg_old
-dt_tg_old = dt_tg
+!integer :: k
+!real, dimension(size(ug,1), size(ug,2), size(ug,3)) :: dt_tg_old
+!dt_tg_old = dt_tg
 
 if(current == previous) then
    delta_t = dt_real
@@ -908,6 +936,27 @@ if ((r_conv_scheme .ne. DRY_CONV).and.(r_conv_scheme .ne. NO_CONV)) then
 
 endif
 
+! Call the simple cloud scheme in line with SPOOKIE-2 requirements
+! Using start of time step variables
+! using soecific humidity NOT mixing ratios
+
+ !Set to zero regarles of if clouds are used in radiation code
+ cf_rad   = 0.
+ reff_rad = 0.
+ qcl_rad  = 0.
+
+if(do_cloud_simple) then
+
+    call cloud_simple(p_half(:,:,:,current), p_full(:,:,:,current),  &
+                      Time,                                &
+                      tg(:,:,:,previous),                  &
+                      grid_tracers(:,:,:,previous,nsphum), &
+                      ! outs - 
+                      cf_rad(:,:,:), reff_rad(:,:,:),      &
+                      qcl_rad(:,:,:)                       & 
+                      )
+ 
+endif
 
 ! Begin the radiation calculation by computing downward fluxes.
 ! This part of the calculation does not depend on the surface temperature.
@@ -1011,11 +1060,31 @@ if(do_rrtm_radiation) then
    !need t at half grid
 	tg_interp=tg(:,:,:,previous)
    call interp_temp(z_full(:,:,:,current),z_half(:,:,:,current),tg_interp, Time)
-   call run_rrtmg(is,js,Time,rad_lat(:,:),rad_lon(:,:),p_full(:,:,:,current),p_half(:,:,:,current),albedo,grid_tracers(:,:,:,previous,nsphum),tg_interp,t_surf(:,:),dt_tg(:,:,:),coszen,net_surf_sw_down(:,:),surf_lw_down(:,:))
+   call run_rrtmg(is,js,Time,rad_lat(:,:),rad_lon(:,:),p_full(:,:,:,current),p_half(:,:,:,current),  &
+                  albedo,grid_tracers(:,:,:,previous,nsphum),tg_interp,t_surf(:,:),dt_tg(:,:,:),     &
+                  coszen,net_surf_sw_down(:,:),surf_lw_down(:,:), cf_rad(:,:,:), reff_rad(:,:,:),   &     
+                  do_cloud_simple )
 endif
 #endif
 
+#ifdef SOC_NO_COMPILE
+    if (do_socrates_radiation) then
+        call error_mesg('idealized_moist_phys','do_socrates_radiation is .true. but compiler flag -D SOC_NO_COMPILE used. Stopping.', FATAL)
+    endif
+#else
+if (do_socrates_radiation) then
+       ! Socrates interface
+  
+    if(do_cloud_simple) then
+       reff_rad = 1.e-6 * reff_rad ! Simple cloud scheme outputs radii in microns. Socrates expects it in metres.
+    endif
+  
+    call run_socrates(Time, Time+Time_step, rad_lat, rad_lon, tg(:,:,:,previous), grid_tracers(:,:,:,previous,nsphum), t_surf(:,:), p_full(:,:,:,current), &
+                      p_half(:,:,:,current),z_full(:,:,:,current),z_half(:,:,:,current), albedo, dt_tg(:,:,:), net_surf_sw_down(:,:), surf_lw_down(:,:), delta_t, do_cloud_simple, cf_rad(:,:,:), reff_rad(:,:,:),      &
+                      qcl_rad(:,:,:)   )
 
+endif
+#endif
 
 if(gp_surface) then
 
@@ -1032,8 +1101,6 @@ if(gp_surface) then
 
 	if(id_diss_heat_ray > 0) used = send_data(id_diss_heat_ray, diss_heat_ray, Time)
 endif
-
-
 
 
 !----------------------------------------------------------------------
@@ -1211,9 +1278,6 @@ if(bucket) then
 endif
 ! end Add bucket section
 
-
-
-
 end subroutine idealized_moist_phys
 !=================================================================================================================================
 subroutine idealized_moist_phys_end
@@ -1230,6 +1294,12 @@ endif
 call lscale_cond_end
 if(mixed_layer_bc)  call mixed_layer_end(t_surf, bucket_depth, bucket)
 if(do_damping) call damping_driver_end
+
+#ifdef SOC_NO_COMPILE
+ !No need to end socrates
+#else
+if(do_socrates_radiation) call run_socrates_end
+#endif
 
 end subroutine idealized_moist_phys_end
 !=================================================================================================================================
