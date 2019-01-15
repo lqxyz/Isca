@@ -43,6 +43,7 @@ diag.add_field('socrates', 'soc_flux_sw', time_avg=True)
 
 
 exp.diag_table = diag
+exp.inputfiles = inputfiles
 
 #Empty the run directory ready to run
 exp.clear_rundir()
@@ -63,9 +64,9 @@ exp.namelist = namelist = Namelist({
         'stellar_constant':1370.,
         'lw_spectral_filename':os.path.join(GFDL_BASE,'src/atmos_param/socrates/src/trunk/data/spectra/ga7/sp_lw_ga7'),
         'sw_spectral_filename':os.path.join(GFDL_BASE,'src/atmos_param/socrates/src/trunk/data/spectra/ga7/sp_sw_ga7'),
-        'do_read_ozone': False,
-        #'ozone_file_name': 'ozone_1990',
-        #'ozone_field_name': 'ozone_1990',
+        'do_read_ozone': True,
+        'ozone_file_name': 'ozone_1990',
+        'ozone_field_name': 'ozone_1990',
         'dt_rad': 3600,
         'store_intermediate_rad': True,
         'chunk_size': 1,
