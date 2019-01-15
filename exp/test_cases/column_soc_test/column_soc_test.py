@@ -41,12 +41,6 @@ diag.add_field('socrates', 'soc_toa_sw', time_avg=True)
 diag.add_field('socrates', 'soc_flux_lw', time_avg=True)
 diag.add_field('socrates', 'soc_flux_sw', time_avg=True)
 
-diag.add_field('cloud_simple', 'cf', time_avg=True)
-diag.add_field('cloud_simple', 'reff_rad', time_avg=True)
-diag.add_field('cloud_simple', 'frac_liq', time_avg=True)
-diag.add_field('cloud_simple', 'qcl_rad', time_avg=True)
-diag.add_field('cloud_simple', 'simple_rhcrit', time_avg=True)
-diag.add_field('cloud_simple', 'rh_in_cf', time_avg=True)
 
 exp.diag_table = diag
 
@@ -112,15 +106,10 @@ exp.namelist = namelist = Namelist({
         'roughness_mom': 3.21e-05, # DONT WANT TO USE THIS, BUT NOT DOING SO IS STOPPING MIXED LAYER FROM WORKING
         'roughness_heat':3.21e-05,
         'roughness_moist':3.21e-05,                
-        'two_stream_gray': True,     #Use grey radiation
+        'two_stream_gray': False,
+        'do_socrates_radiation': True,
         'convection_scheme': 'SIMPLE_BETTS_MILLER', #Use the simple Betts Miller convection scheme 
         'do_cloud_simple': False 
-    },
-
-    'two_stream_gray_rad_nml': {
-        'rad_scheme': 'frierson',            #Select radiation scheme to use, which in this case is Frierson
-        'do_seasonal': False,                #do_seasonal=false uses the p2 insolation profile from Frierson 2006. do_seasonal=True uses the GFDL astronomy module to calculate seasonally-varying insolation.
-        'atm_abs': 0.2,                      # default: 0.0        
     },
 
     'qe_moist_convection_nml': {
@@ -148,7 +137,6 @@ exp.namelist = namelist = Namelist({
         'use_tau': False
     },
 
-    #Use a large mixed-layer depth, and the Albedo of the CTRL case in Jucker & Gerber, 2017
     'mixed_layer_nml': {
         'tconst' : 285.,
         'prescribe_initial_dist':False,
@@ -182,6 +170,6 @@ exp.namelist = namelist = Namelist({
 
 #Lets do a run!
 if __name__=="__main__":
-    exp.run(1, use_restart=False, num_cores=NCORES, overwrite_data=False)
+    exp.run(1, use_restart=False, num_cores=NCORES, overwrite_data=True)
     for i in range(2, 4):
-        exp.run(i, num_cores=NCORES, overwrite_data=False)
+        exp.run(i, num_cores=NCORES, overwrite_data=True)
