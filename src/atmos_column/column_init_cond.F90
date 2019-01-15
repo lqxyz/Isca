@@ -55,20 +55,20 @@ subroutine column_init_cond(initial_state_option, tracer_attributes, reference_s
 
   integer :: unit, ierr, io
 
-  !------------------------------------------------------------------------------------------------
+!------------------------------------------------------------------------------------------------
 
-  #ifdef INTERNAL_FILE_NML
-      read (input_nml_file, nml=column_init_cond_nml, iostat=io)
-      ierr = check_nml_error(io, 'column_init_cond_nml')
-  #else
-      unit = open_namelist_file()
-      ierr = 1
-      do while (ierr /= 0)
-        read(unit, nml=column_init_cond_nml, iostat=io, end=20)
-        ierr = check_nml_error (io, 'column_init_cond_nml')
-      enddo
-  20  call close_file (unit)
-  #endif
+#ifdef INTERNAL_FILE_NML
+  read (input_nml_file, nml=column_init_cond_nml, iostat=io)
+  ierr = check_nml_error(io, 'column_init_cond_nml')
+#else
+  unit = open_namelist_file()
+  ierr = 1
+  do while (ierr /= 0)
+    read(unit, nml=column_init_cond_nml, iostat=io, end=20)
+    ierr = check_nml_error (io, 'column_init_cond_nml')
+  enddo
+20  call close_file (unit)
+#endif
   call write_version_number(version, tagname)
   if(mpp_pe() == mpp_root_pe()) write (stdlog(), nml=column_init_cond_nml)
 
