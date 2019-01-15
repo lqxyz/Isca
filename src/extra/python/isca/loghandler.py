@@ -21,7 +21,6 @@ def clean_log_debug(s):
        log.debug(s.strip())
 
 
-
 class Logger(object):
     """A mixin for objects that wrap underlying processes that output to stdout."""
     log = log
@@ -51,7 +50,6 @@ class Logger(object):
                 self.log.warn(line)
 
 
-
 class SuppressNext(logging.Filter):
     def __init__(self):
         self._suppress_next = False
@@ -75,3 +73,4 @@ class SuppressNext(logging.Filter):
 
 suppress_stdout = SuppressNext()
 stdout.addFilter(suppress_stdout)
+
