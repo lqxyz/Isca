@@ -1,6 +1,5 @@
 module column_init_cond_mod
 
-
 #ifdef INTERNAL_FILE_NML
 use mpp_mod, only: input_nml_file
 #else
@@ -53,6 +52,7 @@ subroutine column_init_cond(initial_state_option, tracer_attributes, reference_s
   real,    intent(out), dimension(:,:  )   :: psg
   real,    intent(out), dimension(:,:,:,:) :: grid_tracers
   real,    intent(out), dimension(:,:  )   :: surf_geopotential_out
+
   integer :: unit, ierr, io
 
   !------------------------------------------------------------------------------------------------
@@ -62,7 +62,7 @@ subroutine column_init_cond(initial_state_option, tracer_attributes, reference_s
       ierr = check_nml_error(io, 'column_init_cond_nml')
   #else
       unit = open_namelist_file()
-      ierr=1
+      ierr = 1
       do while (ierr /= 0)
         read(unit, nml=column_init_cond_nml, iostat=io, end=20)
         ierr = check_nml_error (io, 'column_init_cond_nml')

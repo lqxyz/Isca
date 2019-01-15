@@ -9,7 +9,7 @@ cb = ColumnSocratesCodeBase.from_directory(GFDL_BASE)
 cb.compile()
 
 # create an Experiment object to handle the configuration of model parameters
-exp = Experiment('column_soc_test_exp', codebase=cb)
+exp = Experiment('column_soc_ozone', codebase=cb)
 
 inputfiles = [os.path.join(GFDL_BASE,'input/rrtm_input_files/ozone_1990.nc')]
 
@@ -63,70 +63,70 @@ exp.namelist = namelist = Namelist({
         'stellar_constant':1370.,
         'lw_spectral_filename':os.path.join(GFDL_BASE,'src/atmos_param/socrates/src/trunk/data/spectra/ga7/sp_lw_ga7'),
         'sw_spectral_filename':os.path.join(GFDL_BASE,'src/atmos_param/socrates/src/trunk/data/spectra/ga7/sp_sw_ga7'),
-        'do_read_ozone': False,
-        #ozone_file_name':'ozone_1990',
-        #'ozone_field_name':'ozone_1990',
-        'dt_rad':3600,
-        'store_intermediate_rad':True,
+        'do_read_ozone': True,
+        'ozone_file_name': 'ozone_1990',
+        'ozone_field_name': 'ozone_1990',
+        'dt_rad': 3600,
+        'store_intermediate_rad': True,
         'chunk_size': 1,
-        'use_pressure_interp_for_half_levels':False,
-        'tidally_locked':False,
-        'solday':90,
-    }, 
-   
+        'use_pressure_interp_for_half_levels': False,
+        'tidally_locked': False,
+        'solday': 90,
+    },
+
     'atmosphere_nml': {
         'idealized_moist_model': True
     },
 
     'column_nml': {
         'lon_max': 1, # number of columns in longitude, default begins at lon=0.0
-        'lat_max': 1, # number of columns in latitude, precise 
-                      # latitude can be set in column_grid_nml if only 1 lat used. 
-        'num_levels': 31,  # number of levels 
-        'initial_sphum': 1e-6, 
+        'lat_max': 1, # number of columns in latitude, precise
+                      # latitude can be set in column_grid_nml if only 1 lat used.
+        'num_levels': 31,  # number of levels
+        'initial_sphum': 1e-6,
     },
 
-    'column_grid_nml': { 
-        'lat_value': np.rad2deg(np.arcsin(1/np.sqrt(3))) # set latitude to that which causes insolation in frierson p2 radiation to be insolation / 4. 
+    'column_grid_nml': {
+        'lat_value': np.rad2deg(np.arcsin(1/np.sqrt(3))) # set latitude to that which causes insolation in frierson p2 radiation to be insolation / 4.
         #'global_average': True # don't use this option at the moment
     },
 
-    # set initial condition, NOTE: currently there is not an option to read in initial condition from a file. 
+    # set initial condition, NOTE: currently there is not an option to read in initial condition from a file.
     'column_init_cond_nml': {
-        'initial_temperature': 264., # initial atmospheric temperature 
-        'surf_geopotential': 0.0, # applied to all columns 
-        'surface_wind': 5. # as described above 
+        'initial_temperature': 264., # initial atmospheric temperature
+        'surf_geopotential': 0.0, # applied to all columns
+        'surface_wind': 5. # as described above
     },
 
     'idealized_moist_phys_nml': {
-        'do_damping': False, # no damping in column model, surface wind prescribed 
+        'do_damping': False, # no damping in column model, surface wind prescribed
         'turb':True,        # DONT WANT TO USE THIS, BUT NOT DOING SO IS STOPPING MIXED LAYER FROM WORKING
         'mixed_layer_bc':True, # need surface, how is this trying to modify the wind field? ****
-        'do_simple': True, # simple RH calculation 
+        'do_simple': True, # simple RH calculation
         'roughness_mom': 3.21e-05, # DONT WANT TO USE THIS, BUT NOT DOING SO IS STOPPING MIXED LAYER FROM WORKING
         'roughness_heat':3.21e-05,
-        'roughness_moist':3.21e-05,                
+        'roughness_moist':3.21e-05,
         'two_stream_gray': False,
         'do_socrates_radiation': True,
-        'convection_scheme': 'SIMPLE_BETTS_MILLER', #Use the simple Betts Miller convection scheme 
-        'do_cloud_simple': False 
+        'convection_scheme': 'SIMPLE_BETTS_MILLER', #Use the simple Betts Miller convection scheme
+        'do_cloud_simple': False
     },
 
     'qe_moist_convection_nml': {
-        'rhbm':0.7, # rh criterion for convection 
-        'Tmin':160., # min temperature for convection scheme look up tables 
-        'Tmax':350.  # max temperature for convection scheme look up tables 
+        'rhbm':0.7, # rh criterion for convection
+        'Tmin':160., # min temperature for convection scheme look up tables
+        'Tmax':350.  # max temperature for convection scheme look up tables
     },
-    
+
     'lscale_cond_nml': {
-        'do_simple':True, # only rain 
-        'do_evap':False,  # no re-evaporation of falling precipitation 
+        'do_simple':True, # only rain
+        'do_evap':False,  # no re-evaporation of falling precipitation
     },
 
     'surface_flux_nml': {
-        'use_virtual_temp': True, # use virtual temperature for BL stability 
+        'use_virtual_temp': True, # use virtual temperature for BL stability
         'do_simple': True,
-        'old_dtaudv': True    
+        'old_dtaudv': True
     },
 
     'vert_turb_driver_nml': { # DONT WANT TO USE THIS, BUT NOT DOING SO IS STOPPING MIXED LAYER FROM WORKING
@@ -140,16 +140,16 @@ exp.namelist = namelist = Namelist({
     'mixed_layer_nml': {
         'tconst' : 285.,
         'prescribe_initial_dist':False,
-        'evaporation':True,   
+        'evaporation':True,
         'depth': 2.5,                          #Depth of mixed layer used
-        'albedo_value': 0.30,                  #Albedo value used             
-    },
-    
-    'sat_vapor_pres_nml': {
-        'do_simple':True, 
+        'albedo_value': 0.30,                  #Albedo value used
     },
 
-    # define pressure coordinate 
+    'sat_vapor_pres_nml': {
+        'do_simple':True,
+    },
+
+    # define pressure coordinate
     'vert_coordinate_nml': {
         'bk': [0.000000, 0.0117665, 0.0196679, 0.0315244, 0.0485411, 0.0719344, 0.1027829, 0.1418581, 0.1894648, 0.2453219, 0.3085103, 0.3775033, 0.4502789, 0.5244989, 0.5977253, 0.6676441, 0.7322627, 0.7900587, 0.8400683, 0.8819111, 0.9157609, 0.9422770, 0.9625127, 0.9778177, 0.9897489, 1.0000000],
         'pk': [0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000],
