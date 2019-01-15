@@ -71,7 +71,8 @@ exp.namelist = namelist = Namelist({
         'chunk_size': 16,
         'use_pressure_interp_for_half_levels':False,
         'tidally_locked':False,
-        'solday':90
+        'solday':90,
+        'chunk_size': 1,
     }, 
    
     'atmosphere_nml': {
