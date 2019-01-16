@@ -82,12 +82,10 @@ implicit none
 private
 !=================================================================================================================================
 
-character(len=128) :: version= &
+character(len=128) :: version = &
 '$Id: idealized_moist_phys.F90,v 1.1.2.1 2013/01/24 18:45:34 pjp Exp $'
-
-character(len=128) :: tagname= &
-'$Name:  $'
-character(len=10), parameter :: mod_name='atmosphere'
+character(len=128) :: tagname = '$Name:  $'
+character(len=10), parameter :: mod_name = 'atmosphere'
 
 !=================================================================================================================================
 
@@ -219,7 +217,6 @@ real, allocatable, dimension(:,:,:) ::                                        &
      conv_dt_qg,           &   ! moisture tendency from convection
      cond_dt_tg,           &   ! temperature tendency from condensation
      cond_dt_qg                ! moisture tendency from condensation
-
 
 logical, allocatable, dimension(:,:) ::                                       &
      avail,                &   ! generate surf. flux (all true)
@@ -356,7 +353,6 @@ else if(uppercase(trim(convection_scheme)) == 'SIMPLE_BETTS_MILLER') then
   lwet_convection = .true.
   do_bm           = .false.
   do_ras          = .false.
-  
 
 else if(uppercase(trim(convection_scheme)) == 'FULL_BETTS_MILLER') then
   r_conv_scheme = FULL_BETTS_MILLER_CONV
@@ -364,7 +360,6 @@ else if(uppercase(trim(convection_scheme)) == 'FULL_BETTS_MILLER') then
   do_bm           = .true.
   lwet_convection = .false.
   do_ras          = .false.
-  
 
 else if(uppercase(trim(convection_scheme)) == 'RAS') then
   r_conv_scheme = RAS_CONV
@@ -537,7 +532,6 @@ elseif(trim(land_option) .eq. 'zsurf')then
 	where ( z_surf > 10. ) land = .true.
 endif
 
-
 !s Add option to alter surface roughness length over land
 
 if(trim(land_option) .eq. 'input') then
@@ -561,7 +555,6 @@ endif
 
 !s end option to alter surface roughness length over land
 
-
 if (gp_surface) then
 call rayleigh_bottom_drag_init(get_axis_id(), Time)
 axes = get_axis_id()
@@ -569,15 +562,13 @@ id_diss_heat_ray = register_diag_field(mod_name, 'diss_heat_ray', &
                    axes(1:3), Time, 'dissipated heat from Rayleigh drag', 'K/s')
 endif
 
-
-!    initialize damping_driver_mod.
-      if(do_damping) then
-         call pressure_variables(p_half_1d,ln_p_half_1d,pref(1:num_levels),ln_p_full_1d,PSTD_MKS)
-	 pref(num_levels+1) = PSTD_MKS
-         call damping_driver_init (rad_lonb_2d(:,1),rad_latb_2d(1,:), pref(:), get_axis_id(), Time, & !s note that in the original this is pref(:,1), which is the full model pressure levels and the surface pressure at the bottom. There is pref(:2) in this version with 81060 as surface pressure??
+! initialize damping_driver_mod.
+if(do_damping) then
+  call pressure_variables(p_half_1d,ln_p_half_1d,pref(1:num_levels),ln_p_full_1d,PSTD_MKS)
+  pref(num_levels+1) = PSTD_MKS
+  call damping_driver_init (rad_lonb_2d(:,1),rad_latb_2d(1,:), pref(:), get_axis_id(), Time, & !s note that in the original this is pref(:,1), which is the full model pressure levels and the surface pressure at the bottom. There is pref(:2) in this version with 81060 as surface pressure??
                                 sgsmtn)
-
-      endif
+endif
 
 axes = get_axis_id()
 
@@ -593,11 +584,8 @@ if(mixed_layer_bc) then
 elseif(gp_surface) then
   albedo=0.0
   call error_mesg('idealized_moist_phys','Because gp_surface=.True., setting albedo=0.0', NOTE)
-
   call error_mesg('idealized_moist_phys','Note that if grey radiation scheme != Schneider is used, model will seg-fault b/c gp_surface does not define a t_surf, which is required by most grey schemes.', NOTE)
 
-
-  
 elseif(simple_surface) then
   albedo = 0.0
   t_surf = t_surf_init + 1.0
@@ -613,7 +601,6 @@ if(turb) then
 end if
 
 call lscale_cond_init()
-
 
 id_cond_dt_qg = register_diag_field(mod_name, 'dt_qg_condensation',        &
      axes(1:3), Time, 'Moisture tendency from condensation','kg/kg/s')
@@ -703,7 +690,6 @@ end select
         axes(1:2), Time, 'Rain from convection','kg/m/m/s')
 !endif
 
-
 if(two_stream_gray) call two_stream_gray_rad_init(is, ie, js, je, num_levels, get_axis_id(), Time, rad_lonb_2d, rad_latb_2d, dt_real)
 
 #ifdef RRTM_NO_COMPILE
@@ -748,7 +734,7 @@ if(turb) then
         axes(1:3), Time, 'moisture diffusion tendency','T/s')
 endif
 
-   id_rh = register_diag_field ( mod_name, 'rh', &
+id_rh = register_diag_field ( mod_name, 'rh', &
 	axes(1:3), Time, 'relative humidity', 'percent')
 
 end subroutine idealized_moist_phys_init
@@ -891,7 +877,6 @@ case(RAS_CONV)
    if(id_conv_dt_tg > 0) used = send_data(id_conv_dt_tg, conv_dt_tg, Time)
    if(id_conv_rain  > 0) used = send_data(id_conv_rain, precip, Time)
 
-
 case(NO_CONV)
    conv_dt_tg = 0.0
    tg_tmp = tg(:,:,:,previous)
@@ -902,11 +887,9 @@ case default
 
 end select
 
-
 ! Add the T and q tendencies due to convection to the timestep
 dt_tg = dt_tg + conv_dt_tg
 dt_tracers(:,:,:,nsphum) = dt_tracers(:,:,:,nsphum) + conv_dt_qg
-
 
 ! Perform large scale convection
 if ((r_conv_scheme .ne. DRY_CONV).and.(r_conv_scheme .ne. NO_CONV)) then
@@ -946,16 +929,14 @@ endif
  qcl_rad  = 0.
 
 if(do_cloud_simple) then
-
     call cloud_simple(p_half(:,:,:,current), p_full(:,:,:,current),  &
                       Time,                                &
                       tg(:,:,:,previous),                  &
                       grid_tracers(:,:,:,previous,nsphum), &
-                      ! outs - 
+                      ! outs
                       cf_rad(:,:,:), reff_rad(:,:,:),      &
                       qcl_rad(:,:,:)                       & 
                       )
- 
 endif
 
 ! Begin the radiation calculation by computing downward fluxes.
@@ -972,7 +953,7 @@ if(two_stream_gray) then
                        grid_tracers(:,:,:,previous,nsphum))
 end if
 
-if(.not.mixed_layer_bc) then
+!if(.not.mixed_layer_bc) then
 
 !!$! infinite heat capacity
 !    t_surf = surface_temperature_forced(rad_lat)
@@ -981,7 +962,7 @@ if(.not.mixed_layer_bc) then
 
 !!$! surface temperature has same potential temp. as lowest layer:
 !!$  t_surf = surface_temperature(tg(:,:,:,previous), p_full(:,:,:,current), p_half(:,:,:,current))
-end if
+!end if
 
 if((.not.gp_surface).and.(.not.simple_surface)) then 
 call surface_flux(                                                          &
@@ -1036,7 +1017,6 @@ endif
 
 ! Now complete the radiation calculation by computing the upward and net fluxes.
 
-
 if(simple_surface) then
   call calc_simple_surface(t_surf, surf_lw_down, net_surf_sw_down, delta_t)
   if (id_t_surf > 0) used = send_data(id_t_surf, t_surf, Time)
@@ -1090,7 +1070,7 @@ if(gp_surface) then
 
 	call gp_surface_flux (dt_tg(:,:,:), p_half(:,:,:,current), num_levels)
 	
-    call compute_rayleigh_bottom_drag( 1,                     ie-is+1, &
+  call compute_rayleigh_bottom_drag( 1,                     ie-is+1, &
                                        1,                     je-js+1, &
                                      Time,                    delta_t, &
                    rad_lat(:,:),         dt_ug(:,:,:      ), &
@@ -1101,7 +1081,6 @@ if(gp_surface) then
 
 	if(id_diss_heat_ray > 0) used = send_data(id_diss_heat_ray, diss_heat_ray, Time)
 endif
-
 
 !----------------------------------------------------------------------
 !    Copied from MiMA physics_driver.f90
@@ -1120,9 +1099,6 @@ if(do_damping) then
                              dt_tracers(:,:,:,nsphum), dt_tracers(:,:,:,:),             &
                              z_pbl) !s have taken the names of arrays etc from vert_turb_driver below. Watch ntp from 2006 call to this routine?
 endif
-
-
-
 
 if(turb) then
 
@@ -1162,7 +1138,6 @@ if(turb) then
    if(.not.(mixed_layer_bc.or.gp_surface)) then
      call error_mesg('atmosphere','no diffusion implentation for non-mixed layer b.c.',FATAL)
    endif
-
 
 ! We must use gcm_vert_diff_down and _up rather than gcm_vert_diff as the surface flux
 ! depends implicitly on the surface values
@@ -1225,7 +1200,6 @@ endif ! if(turb) then
    call rh_calc (p_full(:,:,:,previous),tg_tmp,qg_tmp,RH)
    if(id_rh >0) used = send_data(id_rh, RH*100., Time)
 
-
 ! RG Add bucket
 ! Timestepping for bucket. 
 ! NB In tapios github, all physics is still in atmosphere.F90 and this leapfrogging is done there. 
@@ -1261,14 +1235,14 @@ if(bucket) then
    endif
 
    bucket_depth(:,:,future) = bucket_depth(:,:,future) + robert_bucket * (filt(:,:) + bucket_depth(:,:, future)) &
-                           * (raw_bucket - 1.0)  
+                           * (raw_bucket - 1.0)
 
    where (bucket_depth <= 0.) bucket_depth = 0.
 
    ! truncate surface reservoir over land points
-       where(land .and. (bucket_depth(:,:,future) > max_bucket_depth_land))
-            bucket_depth(:,:,future) = max_bucket_depth_land
-       end where
+   where(land .and. (bucket_depth(:,:,future) > max_bucket_depth_land))
+    bucket_depth(:,:,future) = max_bucket_depth_land
+   end where
 
    if(id_bucket_depth > 0) used = send_data(id_bucket_depth, bucket_depth(:,:,future), Time)
    if(id_bucket_depth_conv > 0) used = send_data(id_bucket_depth_conv, depth_change_conv(:,:), Time)
@@ -1307,7 +1281,6 @@ end subroutine idealized_moist_phys_end
 subroutine rh_calc(pfull,T,qv,RH) !s subroutine copied from 2006 FMS MoistModel file moist_processes.f90 (v14 2012/06/22 14:50:00).
 
         IMPLICIT NONE
-
 
         REAL, INTENT (IN),    DIMENSION(:,:,:) :: pfull,T,qv
         REAL, INTENT (OUT),   DIMENSION(:,:,:) :: RH
