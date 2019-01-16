@@ -5,7 +5,6 @@ import os
 
 
 def vinterp(data, vcoord, vlevels):
-    
     """ vertical linear interpolation, credit ExeClim/ShareCode"""
 
     assert (vcoord.ndim == data.ndim or vcoord.ndim == 1 and data.ndim == 4 or
@@ -62,7 +61,6 @@ def vinterp(data, vcoord, vlevels):
             # is between these points, use weight to determine exactly where
             idx = np.where(np.logical_and(vcoord[:, :-1, ...] <= lev,
                                           vcoord[:, 1:, ...] > lev))
-
         else:
             # This does the same, but where vcoord is decreasing with index,
             # so find where vcoord below [:-1] is greater, and vcoord above
@@ -111,37 +109,30 @@ def vinterp(data, vcoord, vlevels):
 
     return np.squeeze(out_data)
 
-def global_average_lat_lon(ds_in, var_name, radius=6371.e3):
 
+def global_average_lat_lon(ds_in, var_name, radius=6371.e3):
     try:
         ds_in['area_array']
     except KeyError:
         cell_area(ds_in, radius)
-
     
     weighted_data = ds_in[var_name]*ds_in['area_array']
-
     area_average = weighted_data.mean(('lat', 'lon')) / ds_in['area_array'].mean(('lat','lon'))
-
     var_in_dims = ds_in[var_name].dims
-
     var_out_dims = tuple(x for x in var_in_dims if x!='lat' and x!='lon')
-
     ds_in[var_name+'_area_av'] = (var_out_dims, area_average)
 
-def cell_area(dataset_in, radius = 6371.e3):
 
+def cell_area(dataset_in, radius = 6371.e3):
     lonb = dataset_in['lonb']
     latb = dataset_in['latb']
 
     lonb_1 = lonb[1::].values
     lonb_2 = lonb[0:-1].values
-
     delta_lon = lonb_1 - lonb_2
 
     latb_1 = latb[1::].values
     latb_2 = latb[0:-1].values
-
     delta_lat = latb_1 - latb_2
 
     dataset_in['delta_lon'] = (('lon'), delta_lon)
@@ -152,13 +143,12 @@ def cell_area(dataset_in, radius = 6371.e3):
 
     xsize = radius*np.absolute(np.deg2rad(dataset_in['delta_lon']))*(np.sin(np.deg2rad(dataset_in['latb_1']))-np.sin(np.deg2rad(dataset_in['latb_2'])))
     ysize = radius
-
     area_array = xsize*ysize
 
     dataset_in['area_array'] = (('lat','lon'), area_array.transpose('lat','lon'))
 
-def pkbk(coord_option, nlevels, surf_res=.1, exponent=2.5, scale_heights=4.):
 
+def pkbk(coord_option, nlevels, surf_res=.1, exponent=2.5, scale_heights=4.):
     if coord_option == 'even_sigma':
         pk = np.zeros(nlevels+1)
         bk = np.zeros(nlevels+1)
@@ -179,8 +169,8 @@ def pkbk(coord_option, nlevels, surf_res=.1, exponent=2.5, scale_heights=4.):
         
     return pk, bk 
 
-def calc_pfull(pk, bk, psurf, diff_option):
 
+def calc_pfull(pk, bk, psurf, diff_option):
     nhalflevels = len(pk)
     phalf = np.zeros(nhalflevels)
     ln_top_level_factor = -1.0
@@ -205,9 +195,9 @@ def calc_pfull(pk, bk, psurf, diff_option):
 
     return pfull 
 
+
 def scm_interp(filename, varname='ozone_1990', vcoord_option='even_sigma', nlevels=None, 
                  vert_difference_option = 'simmons_and_burridge', psurf=1.e3, pk_input=None, bk_input=None):
-
     # psurf in hPa 
     ds = xr.open_dataset(filename, decode_times=False)
 
@@ -218,15 +208,14 @@ def scm_interp(filename, varname='ozone_1990', vcoord_option='even_sigma', nleve
         bk = bk_input
 
     pfull = calc_pfull(pk, bk, psurf, vert_difference_option)
-
     data = vinterp(ds[varname].values, ds.pfull.values, pfull)
     ds.coords['pfull_new'] = pfull 
     ds[varname+'_interp'] = (('time', 'pfull_new', 'lat'), data)
 
     return ds 
 
-if __name__ == "__main__":
 
+if __name__ == "__main__":
     scm_interp(filename=os.path.join(GFDL_BASE,'input/rrtm_input_files/ozone_1990.nc'), 
                varname='ozone_1990', 
                nlevels=31)

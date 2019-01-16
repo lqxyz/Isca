@@ -1,15 +1,19 @@
 import os
 import numpy as np
 from isca import ColumnSocratesCodeBase, DiagTable, Experiment, Namelist, GFDL_BASE
+import sys
+sys.path.append('../column_test_case/')
+from scm_interp_routine import scm_interp, global_average_lat_lon
 
 NCORES = 1
+NUM_LEVELS = 31
 
 base_dir = os.path.dirname(os.path.realpath(__file__))
 cb = ColumnSocratesCodeBase.from_directory(GFDL_BASE)
 cb.compile()
 
 # create an Experiment object to handle the configuration of model parameters
-exp = Experiment('column_soc_test', codebase=cb)
+exp = Experiment('column_soc_ozone', codebase=cb)
 
 #exp.inputfiles = [os.path.join(GFDL_BASE,'input/rrtm_input_files/ozone_1990.nc')]
 
@@ -82,7 +86,7 @@ exp.namelist = namelist = Namelist({
         'lon_max': 1, # number of columns in longitude, default begins at lon=0.0
         'lat_max': 1, # number of columns in latitude, precise
                       # latitude can be set in column_grid_nml if only 1 lat used.
-        'num_levels': 31,  # number of levels
+        'num_levels': NUM_LEVELS,  # number of levels
         'initial_sphum': 1e-6,
     },
 
@@ -164,6 +168,12 @@ exp.namelist = namelist = Namelist({
 })
 
 if __name__=="__main__":
+    ds = scm_interp(filename=os.path.join(GFDL_BASE,'input/rrtm_input_files/ozone_1990.nc'), 
+               varname='ozone_1990', nlevels=NUM_LEVELS)
+    global_average_lat_lon(ds, 'ozone_1990_interp')
+    exp.namelist['socrates_rad_nml']['do_scm_ozone'] = True 
+    exp.namelist['socrates_rad_nml']['scm_ozone'] = np.squeeze(ds.ozone_1990_interp_area_av.mean('time').values).tolist()
+ 
     exp.run(1, use_restart=False, num_cores=NCORES, overwrite_data=False)
     for i in range(2, 25):
         exp.run(i, num_cores=NCORES, overwrite_data=False)

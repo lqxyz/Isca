@@ -29,6 +29,8 @@ LOGICAL :: l_planet_grey_surface = .TRUE.
   character(len=256) :: ozone_file_name='ozone' !Name of file containing ozone field - n.b. don't need to include '.nc'
   character(len=256) :: ozone_field_name='ozone' !Name of ozone variable in ozone file
   logical            :: input_o3_file_is_mmr=.true. ! Does the ozone input file contain values as a mass mixing ratio (set to true) or a volume mixing ratio (set to false)?
+  logical :: do_scm_ozone = .FALSE. ! read single column ozone from namelist? note: ONLY when using SCM.
+  real(r_def), dimension(100) :: scm_ozone = -1 ! input array for single column ozone. max number of levels = 100
   logical :: do_read_co2 = .FALSE. ! read ozone from an external file?
   character(len=256) :: co2_file_name='co2' !Name of file containing co2 field - n.b. don't need to include '.nc'
   character(len=256) :: co2_field_name='co2' !Name of co2 variable in co2 file  
@@ -122,6 +124,6 @@ LOGICAL :: l_planet_grey_surface = .TRUE.
                              hfc134a_mix_ratio, &
                              inc_h2o, inc_co2, inc_co, inc_o3, inc_n2o, inc_ch4, inc_o2, &
                              inc_so2, inc_cfc11, inc_cfc12, inc_cfc113, inc_hcfc22, inc_hfc134a, &
-                             use_pressure_interp_for_half_levels
+                             use_pressure_interp_for_half_levels, do_scm_ozone, scm_ozone
 
 end module socrates_config_mod
