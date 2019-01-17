@@ -9,9 +9,9 @@ module column_grid_mod
 
 use         fms_mod, only: mpp_pe, mpp_root_pe, error_mesg, FATAL, write_version_number, check_nml_error, stdlog
 use         mpp_mod, only: mpp_error
-use mpp_domains_mod, only: domain1D, mpp_get_compute_domains, mpp_get_domain_components, mpp_get_layout, mpp_global_field
+use mpp_domains_mod, only: mpp_global_field
 use   constants_mod, only: pi
-use    spec_mpp_mod, only: get_grid_domain, grid_domain, get_spec_domain
+use    spec_mpp_mod, only: get_grid_domain, grid_domain
 
 implicit none
 private

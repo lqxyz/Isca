@@ -11,15 +11,14 @@ use   column_init_cond_mod, only: column_init_cond
 use        column_grid_mod, only: column_grid_init, get_deg_lat, get_deg_lon, get_grid_boundaries, get_sin_lat, area_weighted_global_mean
 use       diag_manager_mod, only: diag_axis_init, register_diag_field, register_static_field, send_data, diag_manager_end
 use      field_manager_mod, only: MODEL_ATMOS
-use                fms_mod, only: mpp_pe, mpp_root_pe, error_mesg, NOTE, FATAL, write_version_number, stdlog, &
+use                fms_mod, only: mpp_pe, mpp_root_pe, error_mesg, FATAL, write_version_number, stdlog, &
                                   close_file, open_restart_file, file_exist, set_domain,                      &
                                   read_data, write_data, check_nml_error, lowercase, uppercase, mpp_npes,     &
                                   field_size
-use        mpp_mod,         only: NULL_PE, mpp_transmit, mpp_sync, mpp_send, &
-                                  mpp_broadcast, mpp_recv, mpp_max
+use                mpp_mod, only: mpp_sync, mpp_send, mpp_recv, mpp_max
 use   press_and_geopot_mod, only: press_and_geopot_init, pressure_variables, &
-                                  compute_pressures_and_heights,press_and_geopot_end
-use     tracer_manager_mod, only: get_number_tracers, query_method, get_tracer_index, NO_TRACER, get_tracer_names
+                                  compute_pressures_and_heights, press_and_geopot_end
+use     tracer_manager_mod, only: get_number_tracers, get_tracer_index, NO_TRACER, get_tracer_names
 use           spec_mpp_mod, only: spec_mpp_init, get_grid_domain, grid_domain
 use       time_manager_mod, only: time_type, get_time, set_time, get_calendar_type, NO_CALENDAR, &
                                   get_date, interval_alarm, operator( - ), operator( + )
