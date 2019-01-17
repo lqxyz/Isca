@@ -24,7 +24,7 @@ module column_initialize_fields_mod
 use              fms_mod, only: mpp_pe, mpp_root_pe, write_version_number
 use      column_grid_mod, only: area_weighted_global_mean
 use        constants_mod, only: rdgas
-use       transforms_mod, only: get_grid_domain
+use         spec_mpp_mod, only: get_grid_domain
 
 implicit none
 private
