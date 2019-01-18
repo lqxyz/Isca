@@ -6,7 +6,7 @@ module cloud_simple_mod
   use fms_mod, only: open_namelist_file, close_file
 #endif
 
-  use            fms_mod, only: stdlog, FATAL, WARNING, error_mesg
+  use            fms_mod, only: stdlog, FATAL, WARNING, NOTE, error_mesg
   use   time_manager_mod, only: time_type
   use sat_vapor_pres_mod, only:  compute_qs
   use diag_manager_mod, only: register_diag_field, send_data
@@ -14,6 +14,14 @@ module cloud_simple_mod
   implicit none
 
   logical ::   do_init = .true.  ! Check if init needs to be run
+
+  real :: zerodegc = 273.15
+  integer :: id_cf, id_reff_rad, id_frac_liq, id_qcl_rad, id_rh_in_cf, id_simple_rhcrit
+  character(len=14), parameter ::   mod_name_cld = "cloud_simple"
+
+  integer, parameter :: B_SPOOKIE = 1, B_SUNDQVIST = 2, B_SMITH = 3
+  integer, private :: cf_diag_formula = B_SPOOKIE
+  character(len=32) :: cf_diag_formula_name = 'spookie'
 
   real    ::   simple_cca =  0.0
   real    ::   rhcsfc     = 0.95
@@ -24,10 +32,8 @@ module cloud_simple_mod
   real    ::   rhm200     = 0.3
 
   namelist /cloud_simple_nml/  simple_cca, rhcsfc, rhc700, rhc200, &
-                                           rhmsfc, rhm700, rhm200
-  real :: zerodegc = 273.15
-  integer :: id_cf, id_reff_rad, id_frac_liq, id_qcl_rad, id_rh_in_cf, id_simple_rhcrit
-  character(len=14), parameter ::   mod_name_cld = "cloud_simple"
+                                           rhmsfc, rhm700, rhm200, &
+                                           cf_diag_formula_name
 
   contains
 
@@ -165,10 +171,10 @@ module cloud_simple_mod
     real, intent(out) :: simple_rhcrit
 
     ! Calculate RHcrit as function of pressure
-    if (p_full > 7.0e4  ) then
-      simple_rhcrit = rhcsfc - (rhcsfc - rhc700) *           &
+    if ( p_full > 7.0e4 ) then
+      simple_rhcrit = rhcsfc - (rhcsfc - rhc700) *        &
                      (p_surf - p_full) / (p_surf - 7.0e4)
-    else if ( p_full > 2.0e4 ) then 
+    else if ( p_full > 2.0e4 ) then
       simple_rhcrit = rhc700 - (rhc700 - rhc200) *        &
                       (7.0e4 - p_full) / 5.0e4
     else
@@ -186,14 +192,43 @@ module cloud_simple_mod
     real, intent(out) :: cf, rh
     real :: cca
 
-    rh = q_hum/qsat
-    cf = MAX( 0.0, MIN( 1.0, ( rh - simple_rhcrit ) / ( 1.0 - simple_rhcrit ) ))
+    if(uppercase(trim(cf_diag_formula_name)) == 'SPOOKIE') then
+      cf_diag_formula = B_SPOOKIE
+      call error_mesg('cloud_simple', 'Using default SPOOKIE cloud fraction diagnostic formula.', NOTE)
+    else if(uppercase(trim(cf_diag_formula_name)) == 'SUNDQVIST') then
+      cf_diag_formula = B_SUNDQVIST
+      call error_mesg('cloud_simple', 'Using Sundqvist (1987) cloud fraction diagnostic formula.', NOTE)
+    else if(uppercase(trim(cf_diag_formula_name)) == 'SMITH') then
+      cf_diag_formula = B_SMITH
+      call error_mesg('cloud_simple', 'Using Smith (1990) cloud fraction diagnostic formula.', NOTE)
+    else
+      call error_mesg('cloud_simple', '"'//trim(cf_diag_formula_name)//'"'//' is not a valid cloud fraction diagnostic formula.', FATAL)
+    endif
+
+    rh = q_hum / qsat
+
+    select case(cf_diag_formula)
+      case(B_SPOOKIE)
+        ! cf = MAX( 0.0, MIN( 1.0, (rh - simple_rhcrit) / (1.0 - simple_rhcrit) ))
+        cf = (rh - simple_rhcrit) / (1.0 - simple_rhcrit)
+
+      case(B_SUNDQVIST)
+        cf = 1.0 - ((1.0 - rh) / (1.0 - simple_rhcrit))**0.5
+
+      case(B_SMITH)
+        cf = 1.0 - (3.0 / sqrt(2.0) * (1.0 - rh)/(1.0 - simple_rhcrit))**(2.0/3.0)
+
+      case default
+        call error_mesg('cloud_simple', 'invalid cloud fraction diagnostic formula', FATAL)
+    end select
+
+    cf = MAX(0.0, MIN(1.0, cf))
 
     ! include simple convective cloud fraction where present (not currenly used)
     cca = 0.0 ! no convective cloud fraction is calculated
               ! left in for future use
     if (cca > 0.0) then
-      cf = MAX( simple_cca, cf )
+      cf = MAX(simple_cca, cf)
     end if
 
   end subroutine calc_cf
