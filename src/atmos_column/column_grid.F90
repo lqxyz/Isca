@@ -79,21 +79,26 @@ subroutine column_grid_init(num_lon_in, num_lat_in, longitude_origin, south_to_n
 
   call write_version_number(version, tagname)
   if(mpp_pe() == mpp_root_pe()) write (stdlog(), nml=column_grid_nml)
+
   if(num_lon_in .eq. 0) then
     call error_mesg('column_grid_init','num_lon_in cannot be zero', FATAL)
   end if
   num_lon = num_lon_in
+
   if(num_lat_in .eq. 0) then
     call error_mesg('column_grid_init','num_lat_in cannot be zero', FATAL)
   end if
   num_lat = num_lat_in
   lat_max = num_lat
+
   if(present(longitude_origin)) then
     longitude_origin_local = longitude_origin
   else
     longitude_origin_local = 0.0
   end if
+
   call get_grid_domain(is, ie, js, je)
+
   allocate(deg_lon(num_lon))
   do i=1, num_lon
     deg_lon(i) = 180*longitude_origin_local/pi + (i-1) * total_degrees / float(num_lon)
@@ -129,6 +134,7 @@ subroutine column_grid_init(num_lon_in, num_lat_in, longitude_origin, south_to_n
       allocate (sin_hem(lat_max/2))
       allocate (wts_hem(lat_max/2))
       ! del_lat = 90. / (num_lat)
+  
       ! deg_lat(1) = -90 + del_lat
       ! do i = 2, num_lat
       !   deg_lat(i) = deg_lat(i-1) + del_lat
@@ -141,23 +147,28 @@ subroutine column_grid_init(num_lon_in, num_lat_in, longitude_origin, south_to_n
       ! if (.not. south_to_north_local) then
       !   deg_lat(:) = - deg_lat(:)
       ! endif
+
       call compute_gaussian(sin_hem, wts_hem, lat_max/2)
+
       if(south_to_north_local) then
         sin_lat(1:lat_max/2)   = - sin_hem
       else
         sin_lat(1:lat_max/2)   =   sin_hem
       end if
+
       do j=1,lat_max/2
         sin_lat(lat_max+1-j) = - sin_lat(j)
         wts_lat(j)           =   wts_hem(j)
         wts_lat(lat_max+1-j) =   wts_hem(j)
       end do
+
       cos_lat   = sqrt(1-sin_lat*sin_lat)
       deg_lat   = asin(sin_lat)*180.0/pi
     endif
   endif
   cosm_lat  = 1./cos_lat
   cosm2_lat = 1./(cos_lat*cos_lat)
+
   ! this is done in transforms mod when spectral_dynamics is used
   allocate( lon_boundaries_global(num_lon+1) )
   allocate( lat_boundaries_global(lat_max+1) )
@@ -171,17 +182,20 @@ subroutine column_grid_init(num_lon_in, num_lat_in, longitude_origin, south_to_n
       lat_boundaries_global(j+1) = asin(sum_wts-1.)
     end do
     lat_boundaries_global(lat_max+1) = .5*pi
+    lat_boundaries_global(1) = -0.5*pi
     if (.not. south_to_north_local) then
       lat_boundaries_global(:) = -lat_boundaries_global(:)
     end if
-    del_lon = 2*pi/num_lon
+    del_lon = 2 * pi / num_lon
     do i=1,num_lon+1
       lon_boundaries_global(i) = longitude_origin_local + (i-1.5)*del_lon
     end do
   endif
+
   global_sum_of_wts = sum(wts_lat)
+
   module_is_initialized = .true.
-  return
+
 end subroutine column_grid_init
 
 subroutine compute_gaussian(sin_hem_lcl, wts_hem_lcl, n_hem_lcl)
@@ -263,7 +277,6 @@ subroutine get_deg_lon(deg_lon_out)
 
   deg_lon_out(:) = deg_lon(:)
 
-  return
 end subroutine get_deg_lon
 
 subroutine get_deg_lat(deg_lat_out)
@@ -279,7 +292,6 @@ subroutine get_deg_lat(deg_lat_out)
       deg_lat_out = deg_lat(js:je)
   end if
 
-  return
 end subroutine get_deg_lat
 
 subroutine get_grid_boundaries(lon_boundaries, lat_boundaries,global)
@@ -337,7 +349,7 @@ subroutine get_grid_boundaries(lon_boundaries, lat_boundaries,global)
      lon_boundaries = lon_boundaries_global(is:ie+1)
      lat_boundaries = lat_boundaries_global(js:je+1)
   endif
-  return
+
 end subroutine get_grid_boundaries
 
 subroutine get_sin_lat(sin_lat_out)
@@ -353,7 +365,6 @@ subroutine get_sin_lat(sin_lat_out)
       sin_lat_out = sin_lat(js:je)
   end if
 
-  return
 end subroutine get_sin_lat
 
 subroutine get_wts_lat(wts_lat_out)
@@ -369,7 +380,6 @@ subroutine get_wts_lat(wts_lat_out)
       wts_lat_out = wts_lat(js:je)
   end if
 
-  return
 end subroutine get_wts_lat
 
 function area_weighted_global_mean(field)
@@ -399,7 +409,6 @@ subroutine get_lon_max(lon_max_out)
   end if
   lon_max_out = num_lon
 
-  return
 end subroutine get_lon_max
 
 subroutine get_lat_max(lat_max_out)
@@ -411,7 +420,6 @@ subroutine get_lat_max(lat_max_out)
 
   lat_max_out = lat_max
 
-  return
 end subroutine get_lat_max
 
 end module column_grid_mod
