@@ -121,14 +121,14 @@ subroutine column_grid_init(num_lon_in, num_lat_in, longitude_origin, south_to_n
       call error_mesg('column_grid_init', 'cannot set global_average = True with num_lat or num_lon .ne. 1', FATAL)
     endif
     deg_lat(num_lat) = 180*acos(pi / 4)/pi ! value that yields the fraction needed for insolation at this latitude to be equal to that of the global average (S/4)
-    sin_lat = sin(pi / 180 * deg_lat )
-    cos_lat = cos(pi / 180 * deg_lat )
+    sin_lat = sin(pi / 180 * deg_lat)
+    cos_lat = cos(pi / 180 * deg_lat)
     wts_lat = 1. ! need to set wts lat such that it tricks interpolator_mod into doing the right thing....
   else
     if(num_lat .eq. 1) then
       deg_lat(num_lat) = lat_value
-      sin_lat = sin(pi / 180 * deg_lat )
-      cos_lat = cos(pi / 180 * deg_lat )
+      sin_lat = sin(pi / 180 * deg_lat)
+      cos_lat = cos(pi / 180 * deg_lat)
       wts_lat = 1.
     else
       allocate (sin_hem(lat_max/2))

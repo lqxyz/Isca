@@ -6,7 +6,7 @@ module cloud_simple_mod
   use fms_mod, only: open_namelist_file, close_file
 #endif
 
-  use            fms_mod, only: stdlog, FATAL, WARNING, NOTE, error_mesg
+  use            fms_mod, only: stdlog, FATAL, WARNING, NOTE, error_mesg, uppercase
   use   time_manager_mod, only: time_type
   use sat_vapor_pres_mod, only:  compute_qs
   use diag_manager_mod, only: register_diag_field, send_data
