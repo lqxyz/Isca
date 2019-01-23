@@ -194,13 +194,13 @@ module cloud_simple_mod
 
     if(uppercase(trim(cf_diag_formula_name)) == 'SPOOKIE') then
       cf_diag_formula = B_SPOOKIE
-      call error_mesg('cloud_simple', 'Using default SPOOKIE cloud fraction diagnostic formula.', NOTE)
+      ! call error_mesg('cloud_simple', 'Using default SPOOKIE cloud fraction diagnostic formula.', NOTE)
     else if(uppercase(trim(cf_diag_formula_name)) == 'SUNDQVIST') then
       cf_diag_formula = B_SUNDQVIST
-      call error_mesg('cloud_simple', 'Using Sundqvist (1987) cloud fraction diagnostic formula.', NOTE)
+      ! call error_mesg('cloud_simple', 'Using Sundqvist (1987) cloud fraction diagnostic formula.', NOTE)
     else if(uppercase(trim(cf_diag_formula_name)) == 'SMITH') then
       cf_diag_formula = B_SMITH
-      call error_mesg('cloud_simple', 'Using Smith (1990) cloud fraction diagnostic formula.', NOTE)
+      ! call error_mesg('cloud_simple', 'Using Smith (1990) cloud fraction diagnostic formula.', NOTE)
     else
       call error_mesg('cloud_simple', '"'//trim(cf_diag_formula_name)//'"'//' is not a valid cloud fraction diagnostic formula.', FATAL)
     endif
