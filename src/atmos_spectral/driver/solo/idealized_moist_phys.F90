@@ -21,6 +21,8 @@ use two_stream_gray_rad_mod, only: two_stream_gray_rad_init, two_stream_gray_rad
 
 use        cloud_simple_mod, only: cloud_simple_init, cloud_simple_end, cloud_simple
 
+use  fms_cosp_interface_mod, only: fms_cosp_init, fms_cosp_end, fms_run_cosp
+
 use         mixed_layer_mod, only: mixed_layer_init, mixed_layer, mixed_layer_end, albedo_calc
 
 use         lscale_cond_mod, only: lscale_cond_init, lscale_cond, lscale_cond_end
@@ -112,6 +114,8 @@ logical :: do_ras = .false.
 
 ! Cloud options
 logical :: do_cloud_simple = .false.
+! COSP options
+logical :: do_cosp = .false.
 
 !s Radiation options
 logical :: two_stream_gray = .true.
@@ -148,7 +152,7 @@ real :: raw_bucket = 0.53       ! default raw coefficient for bucket depth LJJ
 ! end RG Add bucket
 
 namelist / idealized_moist_phys_nml / turb, lwet_convection, do_bm, do_ras, roughness_heat,  &
-                                      do_cloud_simple,                               &
+                                      do_cloud_simple, do_cosp,                              &
                                       two_stream_gray, do_rrtm_radiation, do_damping,&
                                       mixed_layer_bc, do_simple,                     &
                                       roughness_moist, roughness_mom, do_virtual,    &
@@ -249,7 +253,13 @@ real, allocatable, dimension(:,:) ::                                          &
      rain,                 &   ! Can be resolved or  parameterised
      snow,                 &   !
      precip,               &   ! cumulus rain  + resolved rain  + resolved snow
-     convective_rain           ! QL add, save the result for convective rain
+     convective_rain,      &   ! QL add, save the result for convective rain
+     convective_snow,      &
+     convective_precip,    &
+     large_scale_rain,     &
+     large_scale_snow,     &
+     large_scale_precip    
+
 
 
 real, allocatable, dimension(:,:,:) :: &
@@ -379,14 +389,12 @@ else if(uppercase(trim(convection_scheme)) == 'SIMPLE_BETTS_MILLER') then
   do_bm           = .false.
   do_ras          = .false.
 
-
 else if(uppercase(trim(convection_scheme)) == 'FULL_BETTS_MILLER') then
   r_conv_scheme = FULL_BETTS_MILLER_CONV
   call error_mesg('idealized_moist_phys','Using Betts-Miller convection scheme.', NOTE)
   do_bm           = .true.
   lwet_convection = .false.
   do_ras          = .false.
-
 
 else if(uppercase(trim(convection_scheme)) == 'RAS') then
   r_conv_scheme = RAS_CONV
@@ -519,6 +527,11 @@ allocate(rain         (is:ie, js:je)); rain = 0.0
 allocate(snow         (is:ie, js:je)); snow = 0.0
 allocate(precip       (is:ie, js:je)); precip = 0.0
 allocate(convective_rain (is:ie, js:je)); convective_rain = 0.0
+allocate(convective_snow (is:ie, js:je)); convective_snow = 0.0
+allocate(convective_precip (is:ie, js:je)); convective_precip = 0.0
+allocate(large_scale_rain (is:ie, js:je)); large_scale_rain = 0.0
+allocate(large_scale_snow (is:ie, js:je)); large_scale_snow = 0.0
+allocate(large_scale_precip (is:ie, js:je)); large_scale_precip = 0.0
 allocate(convflag     (is:ie, js:je))
 allocate(convect      (is:ie, js:je)); convect = .false.
 
@@ -602,14 +615,14 @@ id_diss_heat_ray = register_diag_field(mod_name, 'diss_heat_ray', &
 endif
 
 
-!    initialize damping_driver_mod.
-      if(do_damping) then
-         call pressure_variables(p_half_1d,ln_p_half_1d,pref(1:num_levels),ln_p_full_1d,PSTD_MKS)
-	 pref(num_levels+1) = PSTD_MKS
-         call damping_driver_init (rad_lonb_2d(:,1),rad_latb_2d(1,:), pref(:), get_axis_id(), Time, & !s note that in the original this is pref(:,1), which is the full model pressure levels and the surface pressure at the bottom. There is pref(:2) in this version with 81060 as surface pressure??
-                                sgsmtn)
-
-      endif
+! initialize damping_driver_mod.
+if(do_damping) then
+  call pressure_variables(p_half_1d,ln_p_half_1d,pref(1:num_levels),ln_p_full_1d,PSTD_MKS)
+	pref(num_levels+1) = PSTD_MKS
+  call damping_driver_init (rad_lonb_2d(:,1),rad_latb_2d(1,:), pref(:), get_axis_id(), Time, sgsmtn)
+  !s note that in the original this is pref(:,1), which is the full model pressure levels and the 
+  !  surface pressure at the bottom. There is pref(:2) in this version with 81060 as surface pressure??                         
+endif
 
 if(mixed_layer_bc) then
   ! need an initial condition for the mixed layer temperature
@@ -736,12 +749,12 @@ end select
 
 !jp not sure why these diag_fields are fenced when condensation ones above are not...
 !if(lwet_convection .or. do_bm) then
-   id_conv_dt_qg = register_diag_field(mod_name, 'dt_qg_convection',          &
-        axes(1:3), Time, 'Moisture tendency from convection','kg/kg/s')
-   id_conv_dt_tg = register_diag_field(mod_name, 'dt_tg_convection',          &
-        axes(1:3), Time, 'Temperature tendency from convection','K/s')
-   id_conv_rain = register_diag_field(mod_name, 'convection_rain',            &
-        axes(1:2), Time, 'Rain from convection','kg/m/m/s')
+id_conv_dt_qg = register_diag_field(mod_name, 'dt_qg_convection',          &
+    axes(1:3), Time, 'Moisture tendency from convection','kg/kg/s')
+id_conv_dt_tg = register_diag_field(mod_name, 'dt_tg_convection',          &
+    axes(1:3), Time, 'Temperature tendency from convection','K/s')
+id_conv_rain = register_diag_field(mod_name, 'convection_rain',            &
+    axes(1:2), Time, 'Rain from convection','kg/m/m/s')
 !endif
 
 if(two_stream_gray) call two_stream_gray_rad_init(is, ie, js, je, num_levels, get_axis_id(), Time, rad_lonb_2d, rad_latb_2d, dt_real)
@@ -772,6 +785,10 @@ if (do_socrates_radiation) then
     call socrates_init(is, ie, js, je, num_levels, axes, Time, rad_lat, rad_lonb_2d, rad_latb_2d, Time_step_in, do_cloud_simple)
 endif
 #endif
+
+if (do_cloud_simple .and. do_cosp) then
+  call fms_cosp_init(is, ie, js, je, axes, Time, rad_lonb_2d, rad_latb_2d, Time_step_in)
+endif
 
 if(turb) then
    call vert_turb_driver_init (rad_lonb_2d, rad_latb_2d, ie-is+1,je-js+1, &
@@ -829,6 +846,12 @@ endif
 
 rain = 0.0; snow = 0.0; precip = 0.0
 convective_rain = 0.0 ! QL added
+convective_snow = 0.0
+convective_precip = 0.0
+large_scale_rain = 0.0
+large_scale_snow = 0.0
+large_scale_precip = 0.0
+
 
 select case(r_conv_scheme)
 
@@ -917,14 +940,13 @@ case(RAS_CONV)
                tracer(:,:,:),  tracertnd(:,:,:),                             &
                tracertnd(:,:,:), tracertnd(:,:,:))
 
-
       !update tendencies - dT and dq are done after cases
       tg_tmp = tg(:,:,:,previous) + conv_dt_tg
       qg_tmp = grid_tracers(:,:,:,previous,nsphum) + conv_dt_qg
       dt_ug = dt_ug + dt_ug_conv
       dt_vg = dt_vg + dt_vg_conv
 
-      precip     = precip + rain + snow
+      precip = precip + rain + snow
 
    if(id_conv_dt_qg > 0) used = send_data(id_conv_dt_qg, conv_dt_qg, Time)
    if(id_conv_dt_tg > 0) used = send_data(id_conv_dt_tg, conv_dt_tg, Time)
@@ -944,7 +966,9 @@ end select
 dt_tg = dt_tg + conv_dt_tg
 dt_tracers(:,:,:,nsphum) = dt_tracers(:,:,:,nsphum) + conv_dt_qg
 
-convective_rain = precip ! QL added
+convective_rain = rain  ! QL added
+convective_snow = snow
+convective_precip = precip
 
 ! Perform large scale convection
 if (r_conv_scheme .ne. DRY_CONV) then
@@ -972,6 +996,10 @@ if (r_conv_scheme .ne. DRY_CONV) then
   if(id_cond_rain  > 0) used = send_data(id_cond_rain, rain, Time)
   if(id_precip     > 0) used = send_data(id_precip, precip, Time)
 
+  large_scale_rain = rain  ! QL added
+  large_scale_snow = snow
+  large_scale_precip = rain + snow
+
 endif
 
 ! Call the simple cloud scheme in line with SPOOKIE-2 requirements
@@ -995,7 +1023,7 @@ if(do_cloud_simple) then
                       temp_2m(:,:),                        &
                       q_2m(:,:),                           &
                       rh_2m(:,:),                          &
-                      convective_rain(:,:),                &
+                      convective_precip(:,:),                &
                       klcls(:,:),                          &
                       klzbs(:,:),                          &
                       ! outs -
@@ -1158,6 +1186,16 @@ if (do_socrates_radiation) then
 endif
 #endif
 
+if (do_cloud_simple .and. do_cosp) then
+  ! Check input parameters again!!!
+  call fms_run_cosp(Time, Time+Time_step, rad_lat, rad_lon, p_full(:,:,:,current),  &
+              p_half(:,:,:,current), z_full(:,:,:,current), z_half(:,:,:,current),  & 
+              tg(:,:,:,previous), grid_tracers(:,:,:,previous,nsphum), RH(:,:,:),   &
+              cf_rad(:,:,:), reff_rad(:,:,:), qcl_rad(:,:,:),                       &
+              t_surf(:,:), land_ones(:,:), u_surf(:,:), v_surf(:,:), z_surf(:,:))
+endif
+
+
 if(gp_surface) then
 
 	call gp_surface_flux (dt_tg(:,:,:), p_half(:,:,:,current), num_levels)
@@ -1173,8 +1211,6 @@ if(gp_surface) then
 
 	if(id_diss_heat_ray > 0) used = send_data(id_diss_heat_ray, diss_heat_ray, Time)
 endif
-
-
 
 
 !----------------------------------------------------------------------
@@ -1352,11 +1388,10 @@ if(bucket) then
 endif
 ! end Add bucket section
 
-
-
-
 end subroutine idealized_moist_phys
+
 !=================================================================================================================================
+
 subroutine idealized_moist_phys_end
 
 deallocate (dt_bucket, filt)
@@ -1378,18 +1413,21 @@ if(do_damping) call damping_driver_end
 if(do_socrates_radiation) call run_socrates_end
 #endif
 
+if (do_cloud_simple) call cloud_simple_end
+if (do_cloud_simple .and. do_cosp) call fms_cosp_end
+
 end subroutine idealized_moist_phys_end
+
 !=================================================================================================================================
 
 subroutine rh_calc(pfull,T,qv,RH) !s subroutine copied from 2006 FMS MoistModel file moist_processes.f90 (v14 2012/06/22 14:50:00).
 
-        IMPLICIT NONE
+  IMPLICIT NONE
 
+  REAL, INTENT (IN),    DIMENSION(:,:,:) :: pfull,T,qv
+  REAL, INTENT (OUT),   DIMENSION(:,:,:) :: RH
 
-        REAL, INTENT (IN),    DIMENSION(:,:,:) :: pfull,T,qv
-        REAL, INTENT (OUT),   DIMENSION(:,:,:) :: RH
-
-        REAL, DIMENSION(SIZE(T,1),SIZE(T,2),SIZE(T,3)) :: esat
+  REAL, DIMENSION(SIZE(T,1),SIZE(T,2),SIZE(T,3)) :: esat
 
 !-----------------------------------------------------------------------
 !       Calculate RELATIVE humidity.
@@ -1406,26 +1444,26 @@ subroutine rh_calc(pfull,T,qv,RH) !s subroutine copied from 2006 FMS MoistModel 
 !       is, RH is used to store intermediary results
 !       in forming the full solution.
 
-        !calculate water saturated vapor pressure from table
-        !and store temporarily in the variable esat
-        CALL LOOKUP_ES(T,esat)						!same as escomp
+  !calculate water saturated vapor pressure from table
+  !and store temporarily in the variable esat
+  CALL LOOKUP_ES(T,esat)						!same as escomp
 
-        !calculate denominator in qsat formula
-        if(do_simple) then
-          RH(:,:,:) = pfull(:,:,:)
-        else
-          RH(:,:,:) = pfull(:,:,:)-d378*esat(:,:,:)
-        endif
+  !calculate denominator in qsat formula
+  if(do_simple) then
+    RH(:,:,:) = pfull(:,:,:)
+  else
+    RH(:,:,:) = pfull(:,:,:)-d378*esat(:,:,:)
+  endif
 
-        !limit denominator to esat, and thus qs to epsilon
-        !this is done to avoid blow up in the upper stratosphere
-        !where pfull ~ esat
-        RH(:,:,:) = MAX(RH(:,:,:),esat(:,:,:))
+  !limit denominator to esat, and thus qs to epsilon
+  !this is done to avoid blow up in the upper stratosphere
+  !where pfull ~ esat
+  RH(:,:,:) = MAX(RH(:,:,:),esat(:,:,:))
 
-        !calculate RH
-        RH(:,:,:)=qv(:,:,:)/(d622*esat(:,:,:)/RH(:,:,:))
+  !calculate RH
+  RH(:,:,:)=qv(:,:,:)/(d622*esat(:,:,:)/RH(:,:,:))
 
-        !IF MASK is present set RH to zero
+  !IF MASK is present set RH to zero
 !        IF (present(MASK)) RH(:,:,:)=MASK(:,:,:)*RH(:,:,:)
 
 END SUBROUTINE rh_calc
