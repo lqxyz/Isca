@@ -1,19 +1,153 @@
 module fms_cosp_io_mod
-  use cosp_kinds, only: wp
-  use mod_cosp,   only: cosp_outputs
-  use netcdf
-  USE MOD_COSP_CONFIG, ONLY:  Nlvgrid, LIDAR_NCAT, SR_BINS, PARASOL_NREFL, cloudsat_DBZE_BINS, &
-                numMODISReffIceBins, numMODISReffLiqBins, ntau, tau_binBounds, tau_binCenters, &
-                tau_binEdges,npres, pres_binBounds, pres_binCenters, pres_binEdges, nhgt,      &
-                hgt_binBounds, hgt_binCenters, hgt_binEdges, reffLIQ_binCenters,vgrid_z,       &
-                reffICE_binCenters, reffLIQ_binCenters, cloudsat_binCenters, PARASOL_SZA,      &
-                calipso_binCenters, grLidar532_binCenters, atlid_binCenters,                   &
-                CFODD_NDBZE,  CFODD_HISTDBZE, CFODD_HISTDBZEcenters,                           &
-                CFODD_NICOD,  CFODD_HISTICOD, CFODD_HISTICODcenters
+  use fms_mod, only: error_mesg, FATAL
+  use fms_cosp_config_mod
+
   implicit none
 
   contains
+  
+  ! Copied from am3/src/atmos_param/cos/cosp_io.F90
 
+  !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  !----------------- SUBROUTINE MAP_POINT_TO_LL---------------------
+  !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  SUBROUTINE MAP_POINT_TO_LL(Nx,Ny,geomode,x1,x2,x3,x4,y2,y3,y4,y5)
+    ! Input arguments
+    integer,intent(in) :: Nx, Ny, geomode
+    real,intent(in),optional :: x1(:), x2(:,:), x3(:,:,:), x4(:,:,:,:)
+    real,intent(out),optional :: y2(:,:), y3(:,:,:), y4(:,:,:,:),y5(:,:,:,:,:)
+    ! Local variables
+    integer :: Npoints
+    integer :: px(Nx*Ny),py(Nx*Ny)
+    integer :: i,j,k,l,m
+    integer :: Ni,Nj,Nk,Nl
+    integer :: Mi,Mj,Mk,Ml,Mm
+    character(len=128) :: proname='MAP_POINT_TO_LL'
+
+    Npoints = Nx*Ny
+   
+    px=0
+    py=0
+    ! Obtain pointers to do the mapping
+    if (geomode == 2) then ! (lon,lat) mode
+      do j=1,Ny
+        do i=1,Nx
+            k = (j-1)*Nx+i
+            px(k) = i  
+            py(k) = j  
+        enddo
+      enddo
+    else if (geomode == 3) then ! (lon,lat) mode
+      do j=1,Nx
+        do i=1,Ny
+            k = (j-1)*Ny+i
+            px(k) = j
+            py(k) = i  
+        enddo
+      enddo
+    else
+      call error_mesg ('cosp_io:map_point_to_ll',  &
+            ' -- '//trim(proname)//': geomode not supported, ',  FATAL)
+    endif
+
+    if (present(x1).and.present(y2)) then
+      Ni = size(x1,1)
+      Mi = size(y2,1)
+      Mj = size(y2,2)
+      if (Mi*Mj /= Ni) then
+        call error_mesg ('cosp_io:map_point_to_ll',  &
+         ' -- '//trim(proname)//': Nlon*Nlat /= Npoints (opt 1)', FATAL)
+      endif
+      do i=1,Npoints
+        y2(px(i),py(i)) = x1(i)
+      enddo
+    else if (present(x2).and.present(y3)) then
+      Ni = size(x2,1)
+      Nj = size(x2,2)
+      Mi = size(y3,1)
+      Mj = size(y3,2)
+      Mk = size(y3,3)
+      if (Mi*Mj /= Ni) then
+        call error_mesg ('cosp_io:map_point_to_ll',  &
+         ' -- '//trim(proname)//': Nlon*Nlat /= Npoints (opt 2)', FATAL)
+      endif
+      if (Nj /= Mk) then
+        call error_mesg ('cosp_io:map_point_to_ll',  &
+         ' -- '//trim(proname)//': Nj /= Mk (opt 2)', FATAL)
+      endif
+      do k=1,Mk
+       do i=1,Npoints
+          y3(px(i),py(i),k) = x2(i,k)
+       enddo
+      enddo
+    else if (present(x3).and.present(y4)) then
+      Ni = size(x3,1)
+      Nj = size(x3,2)
+      Nk = size(x3,3)
+      Mi = size(y4,1)
+      Mj = size(y4,2)
+      Mk = size(y4,3)
+      Ml = size(y4,4)
+      if (Mi*Mj /= Ni) then
+        call error_mesg ('cosp_io:map_point_to_ll',  &
+         ' -- '//trim(proname)//': Nlon*Nlat /= Npoints (opt 3)', FATAL)
+      endif
+      if (Nj /= Mk) then
+        call error_mesg ('cosp_io:map_point_to_ll',  &
+         ' -- '//trim(proname)//': Nj /= Mk (opt 3)', FATAL)
+      endif
+      if (Nk /= Ml) then
+        call error_mesg ('cosp_io:map_point_to_ll',  &
+                 ' -- '//trim(proname)//': Nk /= Ml (opt 3)', FATAL)
+      endif
+      do l=1,Ml
+       do k=1,Mk
+        do i=1,Npoints
+          y4(px(i),py(i),k,l) = x3(i,k,l)
+        enddo
+       enddo
+      enddo
+    else if (present(x4).and.present(y5)) then
+      Ni = size(x4,1)
+      Nj = size(x4,2)
+      Nk = size(x4,3)
+      Nl = size(x4,4)
+      Mi = size(y5,1)
+      Mj = size(y5,2)
+      Mk = size(y5,3)
+      Ml = size(y5,4)
+      Mm = size(y5,5)
+      if (Mi*Mj /= Ni) then
+        call error_mesg ('cosp_io:map_point_to_ll',  &
+               ' -- '//trim(proname)//': Nlon*Nlat /= Npoints (opt 4)', FATAL)
+      endif
+      if (Nj /= Mk) then
+        call error_mesg ('cosp_io:map_point_to_ll',  &
+                 ' -- '//trim(proname)//': Nj /= Mk (opt 4)', FATAL)
+      endif
+      if (Nk /= Ml) then
+        call error_mesg ('cosp_io:map_point_to_ll',  &
+                 ' -- '//trim(proname)//': Nk /= Ml (opt 4)', FATAL)
+      endif
+      if (Nl /= Mm) then
+        call error_mesg ('cosp_io:map_point_to_ll',  &
+                 ' -- '//trim(proname)//': Nl /= Mm (opt 4)', FATAL)
+      endif
+      do m=1,Mm
+       do l=1,Ml
+        do k=1,Mk
+          do i=1,Npoints
+              y5(px(i),py(i),k,l,m) = x4(i,k,l,m)
+          enddo
+        enddo
+       enddo
+      enddo
+    else
+      call error_mesg ('cosp_io:map_point_to_ll',  &
+               ' -- '//trim(proname)//': wrong option', FATAL)
+    endif
+
+  END SUBROUTINE MAP_POINT_TO_LL
 
   !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   ! SUBROUTINE map_ll_to_point
@@ -21,10 +155,8 @@ module fms_cosp_io_mod
   SUBROUTINE MAP_LL_TO_POINT(Nx,Ny,Np,x2,x3,x4,x5,y1,y2,y3,y4)
     ! Input arguments
     integer,intent(in) :: Nx,Ny,Np
-    real(wp),intent(in),optional :: x2(:,:),x3(:,:,:), &
-         x4(:,:,:,:),x5(:,:,:,:,:)
-    real(wp),intent(out),optional :: y1(:),y2(:,:),y3(:,:,:), &
-         y4(:,:,:,:)
+    real(wp),intent(in),optional :: x2(:,:),x3(:,:,:),x4(:,:,:,:),x5(:,:,:,:,:)
+    real(wp),intent(out),optional :: y1(:),y2(:,:),y3(:,:,:), y4(:,:,:,:)
     ! Local variables
     integer :: px(Nx*Ny),py(Nx*Ny)
     integer :: i,j,k,l,m

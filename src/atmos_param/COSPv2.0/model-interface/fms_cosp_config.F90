@@ -1,7 +1,7 @@
 module fms_cosp_config_mod
   ! This module is modified from
   ! https://github.com/CFMIP/COSPv2.0/blob/master/driver/src/cosp2_test.f90
-  use cosp_kinds,          only: wp    
+  use cosp_kinds,          only: wp   
   USE MOD_COSP_CONFIG,     ONLY: R_UNDEF,PARASOL_NREFL,LIDAR_NCAT,LIDAR_NTYPE,SR_BINS,    &
                                  N_HYDRO,RTTOV_MAX_CHANNELS,numMISRHgtBins,               &
                                  cloudsat_DBZE_BINS,LIDAR_NTEMP,calipso_histBsct,         &
@@ -82,14 +82,14 @@ module fms_cosp_config_mod
       n2o=4.665e-07,               & ! n2o mixing ratio
       co=2.098e-07                   ! co mixing ratio
   logical ::                       & !
-      use_vgrid=.true.,            & ! Use fixed vertical grid for outputs?
-      csat_vgrid=.true.,           & ! CloudSat vertical grid? (if .true. then the CloudSat standard grid
+      use_vgrid=.false.,            & ! Use fixed vertical grid for outputs?
+      csat_vgrid=.false.,           & ! CloudSat vertical grid? (if .true. then the CloudSat standard grid
                                      ! is used for the outputs. USE_VGRID needs also be .true.)
-      use_precipitation_fluxes=.true.                 ! True if precipitation fluxes are input to the algorithm 
+      use_precipitation_fluxes=.false.          ! True if precipitation fluxes are input to the algorithm 
   integer,dimension(RTTOV_MAX_CHANNELS) :: &
-      rttov_Channels ! =(/1, 2, 3/)                     ! RTTOV: Channel numbers
+      rttov_Channels ! =(/1, 2, 3/)             ! RTTOV: Channel numbers
   real(wp),dimension(RTTOV_MAX_CHANNELS) :: &
-      rttov_Surfem !=(/0.0, 0.0, 0.0/)                 ! RTTOV: Surface emissivity
+      rttov_Surfem !=(/0.0, 0.0, 0.0/)          ! RTTOV: Surface emissivity
   character(len=64) :: &
       cloudsat_micro_scheme='MMF_v3_single_moment'   ! Microphysical scheme used in cloudsat radar simulator
                                                       !'MMF_v3.5_two_moment'
@@ -132,79 +132,78 @@ module fms_cosp_config_mod
   logical :: &
       !- CloudSat
       Lcfaddbze94=.true., &
-      Ldbze94=.false., &
+      Ldbze94=.true., &
      
       !- CALIPSO
-      Latb532=.false., &
-      LcfadLidarsr532=.false., &
-      Lclcalipso=.false., &
-      Lclhcalipso=.false., &
-      Lcllcalipso=.false., &
-      Lclmcalipso=.false., &
-      Lcltcalipso=.false., &
-      LparasolRefl=.false., &
+      Latb532=.true., &
+      LcfadLidarsr532=.true., &
+      Lclcalipso=.true., &
+      Lclhcalipso=.true., &
+      Lcllcalipso=.true., &
+      Lclmcalipso=.true., &
+      Lcltcalipso=.true., &
+      LparasolRefl=.true., &
      
       ! CALIPSO phase diagnostics
-      Lclcalipsoliq=.false., &
-      Lclcalipsoice=.false., &
-      Lclcalipsoun=.false., &
-      Lclcalipsotmp=.false., &
-      Lclcalipsotmpliq=.false., &
-      Lclcalipsotmpice=.false., &
-      Lclcalipsotmpun=.false., &
-      Lclhcalipsoliq=.false., &
-      Lcllcalipsoliq=.false., &
-      Lclmcalipsoliq=.false., &
-      Lcltcalipsoliq=.false., &
-      Lclhcalipsoice=.false., &
-      Lcllcalipsoice=.false., &
-      Lclmcalipsoice=.false., &
-      Lcltcalipsoice=.false., &
-      Lclhcalipsoun=.false., &
-      Lcllcalipsoun=.false., &
-      Lclmcalipsoun=.false., &
-      Lcltcalipsoun=.false., &
+      Lclcalipsoliq=.true., &
+      Lclcalipsoice=.true., &
+      Lclcalipsoun=.true., &
+      Lclcalipsotmp=.true., &
+      Lclcalipsotmpliq=.true., &
+      Lclcalipsotmpice=.true., &
+      Lclcalipsotmpun=.true., &
+      Lclhcalipsoliq=.true., &
+      Lcllcalipsoliq=.true., &
+      Lclmcalipsoliq=.true., &
+      Lcltcalipsoliq=.true., &
+      Lclhcalipsoice=.true., &
+      Lcllcalipsoice=.true., &
+      Lclmcalipsoice=.true., &
+      Lcltcalipsoice=.true., &
+      Lclhcalipsoun=.true., &
+      Lcllcalipsoun=.true., &
+      Lclmcalipsoun=.true., &
+      Lcltcalipsoun=.true., &
       
       ! CALIPSO OPAQ diagnostics
-      Lclopaquecalipso=.false., &
-      Lclthincalipso=.false., &
-      Lclzopaquecalipso=.false., &
-      Lclcalipsoopaque=.false., &
-      Lclcalipsothin=.false., &
-      Lclcalipsozopaque=.false., &
-      Lclcalipsoopacity=.false., &
-      Lclopaquetemp=.false.,  &
-      Lclthintemp=.false.,  &
-      Lclzopaquetemp=.false.,  &
-      Lclopaquemeanz=.false.,  &
-      Lclthinmeanz=.false.,  &
-      Lclthinemis=.false.,  &
-      Lclopaquemeanzse=.false., &
-      Lclthinmeanzse=.false.,  &
-      Lclzopaquecalipsose=.false., &
+      Lclopaquecalipso=.true., &
+      Lclthincalipso=.true., &
+      Lclzopaquecalipso=.true., &
+      Lclcalipsoopaque=.true., &
+      Lclcalipsothin=.true., &
+      Lclcalipsozopaque=.true., &
+      Lclcalipsoopacity=.true., &
+      Lclopaquetemp=.true.,  &
+      Lclthintemp=.true.,  &
+      Lclzopaquetemp=.true.,  &
+      Lclopaquemeanz=.true.,  &
+      Lclthinmeanz=.true.,  &
+      Lclthinemis=.true.,  &
+      Lclopaquemeanzse=.true., &
+      Lclthinmeanzse=.true.,  &
+      Lclzopaquecalipsose=.true., &
       
       ! GROUND LIDAR diagnostics
-      LlidarBetaMol532gr=.false., &
-      LcfadLidarsr532gr=.false., &
-      Latb532gr=.false., &
-      LclgrLidar532=.false., &
-      LclhgrLidar532=.false., &
-      LcllgrLidar532=.false., &
-      LclmgrLidar532=.false., &
-      LcltgrLidar532=.false., &
+      LlidarBetaMol532gr=.true., &
+      LcfadLidarsr532gr=.true., &
+      Latb532gr=.true., &
+      LclgrLidar532=.true., &
+      LclhgrLidar532=.true., &
+      LcllgrLidar532=.true., &
+      LclmgrLidar532=.true., &
+      LcltgrLidar532=.true., &
       
       ! ATLID diagnostics
-      LlidarBetaMol355=.false., &
-      LcfadLidarsr355=.false., &
-      Latb355=.false., &
-      Lclatlid=.false., &
-      Lclhatlid=.false., &
-      Lcllatlid=.false., &
-      Lclmatlid=.false., &
-      Lcltatlid=.false., &
+      LlidarBetaMol355=.true., &
+      LcfadLidarsr355=.true., &
+      Latb355=.true., &
+      Lclatlid=.true., &
+      Lclhatlid=.true., &
+      Lcllatlid=.true., &
+      Lclmatlid=.true., &
+      Lcltatlid=.true., &
       
       !- ISCCP
-      ! TRY: Default use ISCCP simulator
       Lalbisccp=.true., &
       Lboxptopisccp=.true., &
       Lboxtauisccp=.true., &
@@ -216,57 +215,57 @@ module fms_cosp_config_mod
       Lmeantbclrisccp=.true., &
       
       !- MISR
-      LclMISR=.false., &
+      LclMISR=.true., &
 
       !- Use lidar and radar
-      Lclcalipso2=.false., &
-      Lcltlidarradar=.false., &
-      Lcloudsat_tcc=.false., &
-      Lcloudsat_tcc2=.false., &
+      Lclcalipso2=.true., &
+      Lcltlidarradar=.true., &
+      Lcloudsat_tcc=.true., &
+      Lcloudsat_tcc2=.true., &
 
       !- These are provided for debugging or special purposes
-      Lfracout=.false., &
-      LlidarBetaMol532=.false., &
+      Lfracout=.true., &
+      LlidarBetaMol532=.true., &
 
       !- MODIS
-      Lcltmodis=.false., &
-      Lclwmodis=.false., &
-      Lclimodis=.false., &
-      Lclhmodis=.false., &
-      Lclmmodis=.false., &
-      Lcllmodis=.false., &
-      Ltautmodis=.false., &
-      Ltauwmodis=.false., &
-      Ltauimodis=.false., &
-      Ltautlogmodis=.false., &
-      Ltauwlogmodis=.false., &
-      Ltauilogmodis=.false., &
-      Lreffclwmodis=.false., &
-      Lreffclimodis=.false., &
-      Lpctmodis=.false., &
-      Llwpmodis=.false., &
-      Liwpmodis=.false., &
-      Lclmodis=.false., &
+      Lcltmodis=.true., &
+      Lclwmodis=.true., &
+      Lclimodis=.true., &
+      Lclhmodis=.true., &
+      Lclmmodis=.true., &
+      Lcllmodis=.true., &
+      Ltautmodis=.true., &
+      Ltauwmodis=.true., &
+      Ltauimodis=.true., &
+      Ltautlogmodis=.true., &
+      Ltauwlogmodis=.true., &
+      Ltauilogmodis=.true., &
+      Lreffclwmodis=.true., &
+      Lreffclimodis=.true., &
+      Lpctmodis=.true., &
+      Llwpmodis=.true., &
+      Liwpmodis=.true., &
+      Lclmodis=.true., &
       
       !- RTTOV &
-      Ltbrttov=.false., &
+      Ltbrttov=.true., &
       
       ! -CLOUDSAT precipitation frequency/occurence diagnostics
-      Lptradarflag0=.false., &
-      Lptradarflag1=.false., &
-      Lptradarflag2=.false., &
-      Lptradarflag3=.false., &
-      Lptradarflag4=.false., &
-      Lptradarflag5=.false., &
-      Lptradarflag6=.false., &
-      Lptradarflag7=.false., &
-      Lptradarflag8=.false., &
-      Lptradarflag9=.false., &
-      Lradarpia=.false., &
+      Lptradarflag0=.true., &
+      Lptradarflag1=.true., &
+      Lptradarflag2=.true., &
+      Lptradarflag3=.true., &
+      Lptradarflag4=.true., &
+      Lptradarflag5=.true., &
+      Lptradarflag6=.true., &
+      Lptradarflag7=.true., &
+      Lptradarflag8=.true., &
+      Lptradarflag9=.true., &
+      Lradarpia=.true., &
     
       !- CloudSat+MODIS joint diagnostics
-      Lwr_occfreq=.false., &
-      Lcfodd=.false.
+      Lwr_occfreq=.true., &
+      Lcfodd=.true.
 
   namelist/cosp_output_nml/Lcfaddbze94,Ldbze94,Latb532,LcfadLidarsr532,Lclcalipso,&
                 Lclhcalipso,Lcllcalipso,Lclmcalipso,Lcltcalipso,LparasolRefl,     &

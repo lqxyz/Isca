@@ -40,6 +40,7 @@ module fms_cosp_interface_mod
 
   ! Sef defined modules
   use fms_cosp_config_mod  ! Flags to select which simulator to use
+  use fms_cosp_io_mod,      only:  map_point_to_ll  ! ,map_ll_to_point
 
   implicit none
 
@@ -50,7 +51,7 @@ module fms_cosp_interface_mod
   type(cosp_column_inputs)  :: cospstateIN    ! COSP model fields needed by simulators
   character(len=256), dimension(100) :: cosp_status
 
-  character(len=10), parameter  :: cosp_mod_name = 'cosp'
+  character(len=10), parameter  :: mod_name = 'cosp'
   real :: dt_last !Time of last COSP calculation - used to tell whether it is time to recompute COSP or not
   type(interpolate_type),save   :: o3_interp, co2_interp  ! use external file for ozone and co2
 
@@ -101,17 +102,52 @@ module fms_cosp_interface_mod
         gamma_3 = (/-1., -1.,      2.0,      2.0, -1., -1.,      2.0,      2.0,      2.0/),&
         gamma_4 = (/-1., -1.,      6.0,      6.0, -1., -1.,      6.0,      6.0,      6.0/)
   
+  integer :: Npoints  ! Number of gridpoints ==> (nlat x nlon)
+  integer :: Nlevels  ! Number of model vertical levels
 
+  ! ************************* Output variables ***********************************!
+  integer ::  id_cltcalipso_sat, id_cllcalipso_sat, id_clmcalipso_sat,  &
+              id_clhcalipso_sat
+  integer ::  id_cltcalipso, id_cllcalipso, id_clmcalipso, id_clhcalipso, &
+              id_cltlidarradar, id_cltisccp, id_ctpisccp, id_tauisccp, &
+              id_tbisccp, id_tbclrisccp, &
+              id_betamol532, &
+              id_albisccp, id_clcalipso, id_clcalipso2, &
+              id_clcalipso_sat, id_clcalipso2_sat, &
+              id_clcalipso_mdl, id_clcalipso2_mdl, &
+              id_boxtauisccp, id_boxptopisccp, id_parasolrefl, &
+              id_parasolrefl_sat, &
+              id_sampling_sat, id_location_sat, id_lat_sat, id_lon_sat
+  integer ::  id_tclmodis, id_lclmodis, id_iclmodis, id_ttaumodis, &
+              id_ltaumodis, id_itaumodis, id_tlogtaumodis, &
+              id_llogtaumodis, id_ilogtaumodis, id_lremodis, &
+              id_badlremodis, id_badiremodis, &
+              id_locldmodis, id_mdcldmodis, id_hicldmodis, &
+              id_iremodis, id_ctpmodis, id_lwpmodis, id_iwpmodis
+  integer, allocatable, dimension(:) :: id_dbze94, id_cloudsatcfad, &
+                                        id_cloudsatcfad_sat, &
+                                        id_atb532, id_calipsosrcfad, &
+                                        id_calipsosrcfad_sat, &
+                                        id_cloud_type, id_boxtauisccp_n, &
+                                        id_boxptopisccp_n, &
+                                        id_taumodis_n, id_ptopmodis_n, &
+                                        id_badsizemodis_n, &
+                                        id_sizemodis_n, id_phasemodis_n
+  integer, allocatable, dimension(:) :: id_cloudsatcfad_mdl, &
+                                        id_calipsosrcfad_mdl
+  real  :: missing_value = -1.0E30
+  integer :: geomode
+  
   contains
 
-  subroutine fms_cosp_init(is, ie, js, je, axes, Time, lonb, latb, delta_t_atmos) !, do_cloud_simple)
+  subroutine fms_cosp_init(is, ie, js, je, num_levels, axes, Time, lonb, latb, delta_t_atmos) !, do_cloud_simple)
 
     implicit none
 
     ! arguments
     integer, intent(in), dimension(4) :: axes
     type(time_type), intent(in)       :: Time, delta_t_atmos
-    integer, intent(in)               :: is, ie, js, je
+    integer, intent(in)               :: is, ie, js, je, num_levels
     real, intent(in) , dimension(:,:) :: lonb, latb
     ! logical, intent(in)               :: do_cloud_simple
 
@@ -141,11 +177,10 @@ module fms_cosp_interface_mod
     write(stdlog_unit, cosp_input_nml)
     write(stdlog_unit, cosp_output_nml)
 
-        !Initialise astronomy
+    !Initialise astronomy
     call astronomy_init
 
-    !Initialise variables related to radiation timestep
-
+    !Initialise variables related to timestep
     call get_time(delta_t_atmos, time_step_seconds)
 
     if (dt_cosp .le. 0.) then
@@ -186,27 +221,84 @@ module fms_cosp_interface_mod
     !     'chunk_size must equally divide number of points per processor, which it currently does not.', FATAL)
     ! endif
 
+    
+    ! %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    !!!! calculation !!!
+    Nlevels = num_levels
+    Npoints = (ie-is+1) * (je-js+1)
 
-    !!!! ************ Define id of output variables *******
-    !!!! id_
+    call select_simulator()
 
     !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     ! Initialize COSP
     !*This only needs to be done the first time that COSP is called.*
     !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
+    
     ! Initialize quickbeam_optics, also if two-moment radar microphysics scheme is wanted...
     if (cloudsat_micro_scheme == 'MMF_v3.5_two_moment')  then
       ldouble = .true. 
       lsingle = .false.
     endif
-
-    call select_simulator()
-
     call quickbeam_optics_init()
 
     ! Initialize the distributional parameters for hydrometeors in radar simulator
     call hydro_class_init(lsingle, ldouble, sd)
+
+    !write(*,*) 'QL: before call cosp init...'
+    ! Initialize COSP simulator
+    !  SUBROUTINE COSP_INIT(Lisccp, Lmodis, Lmisr, Lcloudsat, Lcalipso, LgrLidar532,
+    !      Latlid, Lparasol, Lrttov,     &
+    !     cloudsat_radar_freq, cloudsat_k2, cloudsat_use_gas_abs, cloudsat_do_ray,   &
+    !     isccp_top_height, isccp_top_height_direction, surface_radar, rcfg, lusevgrid, &
+    !     luseCSATvgrid, Nvgrid, Nlevels, cloudsat_micro_scheme)
+    ! from cosp_input_nml except 'rcfg_cloudsat'
+    call cosp_init(Lisccp, Lmodis, Lmisr, Lcloudsat, Lcalipso, LgrLidar532, Latlid,     &
+        Lparasol, Lrttov,                                                               &
+        cloudsat_radar_freq, cloudsat_k2, cloudsat_use_gas_abs,                         &
+        cloudsat_do_ray, isccp_topheight, isccp_topheight_direction, surface_radar,     &
+        rcfg_cloudsat, use_vgrid, csat_vgrid, Nlvgrid, Nlevels, cloudsat_micro_scheme)
+    !write(*,*) 'QL: after call cosp init...'
+
+    !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    ! Construct output derived type.
+    ! *NOTE* The "construct/destroy" subroutines are local to this module and should be
+    !        modified for your configuration. E.g. it may be overkill to query each field.
+    !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    call construct_cosp_outputs(Lpctisccp, Lclisccp, Lboxptopisccp, Lboxtauisccp,         &
+        Ltauisccp, Lcltisccp, Lmeantbisccp, Lmeantbclrisccp, Lalbisccp, LclMISR,          &
+        Lcltmodis, Lclwmodis, Lclimodis, Lclhmodis, Lclmmodis, Lcllmodis, Ltautmodis,     &
+        Ltauwmodis, Ltauimodis, Ltautlogmodis, Ltauwlogmodis, Ltauilogmodis,              &
+        Lreffclwmodis, Lreffclimodis, Lpctmodis, Llwpmodis, Liwpmodis, Lclmodis, Latb532, &
+        Latb532gr, Latb355, LlidarBetaMol532, LlidarBetaMol532gr, LlidarBetaMol355,       & 
+        LcfadLidarsr532, LcfadLidarsr532gr, LcfadLidarsr355, Lclcalipso2,                 & 
+        Lclcalipso, LclgrLidar532, Lclatlid, Lclhcalipso, Lcllcalipso, Lclmcalipso,       & 
+        Lcltcalipso, LclhgrLidar532, LcllgrLidar532, LclmgrLidar532, LcltgrLidar532,      & 
+        Lclhatlid, Lcllatlid, Lclmatlid, Lcltatlid, Lcltlidarradar,  Lcloudsat_tcc,       &
+        Lcloudsat_tcc2, Lclcalipsoliq,                                                    & 
+        Lclcalipsoice, Lclcalipsoun, Lclcalipsotmp, Lclcalipsotmpliq, Lclcalipsotmpice,   &
+        Lclcalipsotmpun, Lcltcalipsoliq, Lcltcalipsoice, Lcltcalipsoun, Lclhcalipsoliq,   &
+        Lclhcalipsoice, Lclhcalipsoun, Lclmcalipsoliq, Lclmcalipsoice, Lclmcalipsoun,     &
+        Lcllcalipsoliq, Lcllcalipsoice, Lcllcalipsoun, Lclopaquecalipso, Lclthincalipso,  & 
+        Lclzopaquecalipso, Lclcalipsoopaque, Lclcalipsothin, Lclcalipsozopaque,           & 
+        Lclcalipsoopacity, Lclopaquetemp, Lclthintemp, Lclzopaquetemp, Lclopaquemeanz,    & 
+        Lclthinmeanz, Lclthinemis, Lclopaquemeanzse, Lclthinmeanzse, Lclzopaquecalipsose, &
+        LcfadDbze94, Ldbze94, Lparasolrefl,                                               &
+        Ltbrttov, Lptradarflag0,Lptradarflag1,Lptradarflag2,Lptradarflag3,Lptradarflag4,  &
+        Lptradarflag5,Lptradarflag6,Lptradarflag7,Lptradarflag8,Lptradarflag9,Lradarpia,  &
+        Lwr_occfreq, Lcfodd,                                                              &
+        Npoints, Ncolumns, Nlevels, Nlvgrid_local, rttov_Nchannels, cospOUT)
+
+    !!!! ************ Define id of output variables *******
+
+    call diag_field_init(Time, axes)
+
+    !--------------------------------------------------------------------
+    !   variable geomode indicates that the grid (i,j) => (lon,lat)
+    !--------------------------------------------------------------------
+    ! geomode = 2 for (lon,lat) mode.
+    ! geomode = 3 for (lat,lon) mode.
+    ! See am3/src/atmos_param/cosp/cosp_driver.F90 for details
+    geomode = 2
 
     if (js == 1) then
       call error_mesg( 'fms_cosp_init', 'COSP v2.0 is initialized.', NOTE)
@@ -215,7 +307,7 @@ module fms_cosp_interface_mod
   end subroutine fms_cosp_init
 
 
-  subroutine fms_cosp_interface(Npoints, Nlevels, rad_lat, rad_lon, &
+  subroutine fms_cosp_interface(rad_lat, rad_lon, &
       fms_p_full, fms_p_half, fms_z_full, fms_z_half, fms_temp, &
       fms_spec_hum, fms_rh, fms_tot_cld_amt, fms_conv_cld_amt, &
       fms_mmr_ls_liq, fms_mmr_ls_ice, fms_mmr_cc_liq, fms_mmr_cc_ice, &
@@ -227,7 +319,6 @@ module fms_cosp_interface_mod
 
     implicit none
     
-    integer, intent(in) :: Npoints, Nlevels
     real(wp), dimension(:,:),   intent(in) :: rad_lon, rad_lat
     real(wp), dimension(:,:,:), intent(in) :: fms_p_full, fms_p_half,      &
         fms_z_full, fms_z_half, fms_temp, fms_spec_hum, fms_rh,            &
@@ -297,7 +388,7 @@ module fms_cosp_interface_mod
     mr_ozone = reshape(fms_mmr_ozone, (/si*sj, sk/))
     mr_co2 = sum(fms_mmr_co2)/(si*sj*sk)
     
-    write(*,*) 'QL, mr_co2', mr_co2
+    !write(*,*) 'QL, mr_co2', mr_co2
 
     ! fms_hydrometeor_Reff(nlat, nlon, nlev, N_HYDRO)
     Reff = reshape(fms_hydrometeor_Reff,  (/si*sj, sk, N_HYDRO/))
@@ -309,52 +400,6 @@ module fms_cosp_interface_mod
     sunlit = reshape(fms_sunlit, (/si*sj/))  ! check again!
     surfelev = reshape(fms_z_surf, (/si*sj/))
     emsfc_lw = fms_sfc_lw_emissivity
-
-    write(*,*) 'QL: before call cosp init...'
-
-    ! Initialize COSP simulator
-    !  SUBROUTINE COSP_INIT(Lisccp, Lmodis, Lmisr, Lcloudsat, Lcalipso, LgrLidar532,
-    !      Latlid, Lparasol, Lrttov,     &
-    !     cloudsat_radar_freq, cloudsat_k2, cloudsat_use_gas_abs, cloudsat_do_ray,   &
-    !     isccp_top_height, isccp_top_height_direction, surface_radar, rcfg, lusevgrid, &
-    !     luseCSATvgrid, Nvgrid, Nlevels, cloudsat_micro_scheme)
-    ! from cosp_input_nml except 'rcfg_cloudsat'
-    call cosp_init(Lisccp, Lmodis, Lmisr, Lcloudsat, Lcalipso, LgrLidar532, Latlid,     &
-        Lparasol, Lrttov,                                                               &
-        cloudsat_radar_freq, cloudsat_k2, cloudsat_use_gas_abs,                         &
-        cloudsat_do_ray, isccp_topheight, isccp_topheight_direction, surface_radar,     &
-        rcfg_cloudsat, use_vgrid, csat_vgrid, Nlvgrid, Nlevels, cloudsat_micro_scheme)
-    
-    write(*,*) 'QL: after call cosp init...'
-
-    !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    ! Construct output derived type.
-    ! *NOTE* The "construct/destroy" subroutines are local to this module and should be
-    !        modified for your configuration. E.g. it may be overkill to query each field.
-    !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    call construct_cosp_outputs(Lpctisccp, Lclisccp, Lboxptopisccp, Lboxtauisccp,       &
-      Ltauisccp, Lcltisccp, Lmeantbisccp, Lmeantbclrisccp, Lalbisccp, LclMISR,          &
-      Lcltmodis, Lclwmodis, Lclimodis, Lclhmodis, Lclmmodis, Lcllmodis, Ltautmodis,     &
-      Ltauwmodis, Ltauimodis, Ltautlogmodis, Ltauwlogmodis, Ltauilogmodis,              &
-      Lreffclwmodis, Lreffclimodis, Lpctmodis, Llwpmodis, Liwpmodis, Lclmodis, Latb532, &
-      Latb532gr, Latb355, LlidarBetaMol532, LlidarBetaMol532gr, LlidarBetaMol355,       & 
-      LcfadLidarsr532, LcfadLidarsr532gr, LcfadLidarsr355, Lclcalipso2,                 & 
-      Lclcalipso, LclgrLidar532, Lclatlid, Lclhcalipso, Lcllcalipso, Lclmcalipso,       & 
-      Lcltcalipso, LclhgrLidar532, LcllgrLidar532, LclmgrLidar532, LcltgrLidar532,      & 
-      Lclhatlid, Lcllatlid, Lclmatlid, Lcltatlid, Lcltlidarradar,  Lcloudsat_tcc,       &
-      Lcloudsat_tcc2, Lclcalipsoliq,                                                    & 
-      Lclcalipsoice, Lclcalipsoun, Lclcalipsotmp, Lclcalipsotmpliq, Lclcalipsotmpice,   &
-      Lclcalipsotmpun, Lcltcalipsoliq, Lcltcalipsoice, Lcltcalipsoun, Lclhcalipsoliq,   &
-      Lclhcalipsoice, Lclhcalipsoun, Lclmcalipsoliq, Lclmcalipsoice, Lclmcalipsoun,     &
-      Lcllcalipsoliq, Lcllcalipsoice, Lcllcalipsoun, Lclopaquecalipso, Lclthincalipso,  & 
-      Lclzopaquecalipso, Lclcalipsoopaque, Lclcalipsothin, Lclcalipsozopaque,           & 
-      Lclcalipsoopacity, Lclopaquetemp, Lclthintemp, Lclzopaquetemp, Lclopaquemeanz,    & 
-      Lclthinmeanz, Lclthinemis, Lclopaquemeanzse, Lclthinmeanzse, Lclzopaquecalipsose, &
-      LcfadDbze94, Ldbze94, Lparasolrefl,                                               &
-      Ltbrttov, Lptradarflag0,Lptradarflag1,Lptradarflag2,Lptradarflag3,Lptradarflag4,  &
-      Lptradarflag5,Lptradarflag6,Lptradarflag7,Lptradarflag8,Lptradarflag9,Lradarpia,  &
-      Lwr_occfreq, Lcfodd,                                                              &
-      Npoints, Ncolumns, Nlevels, Nlvgrid_local, rttov_Nchannels, cospOUT)
   
     !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     ! Break COSP up into pieces and loop over each COSP 'chunk'.
@@ -363,10 +408,10 @@ module fms_cosp_interface_mod
     nChunks = nPoints/nPoints_it+1
     if (nPoints .eq. nPoints_it) nChunks = 1
     
-    write(*,*) 'QL, nChunks, nPoints', nChunks, nPoints
+    !write(*,*) 'QL, nChunks, nPoints', nChunks, nPoints
 
     do iChunk=1,nChunks
-      write(*,*) 'QL, iChunk', iChunk
+      !write(*,*) 'QL, iChunk', iChunk
       !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
       ! Determine indices for "chunking" (again, if necessary)
       !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -418,7 +463,7 @@ module fms_cosp_interface_mod
       cospstateIN%o3          = mr_ozone(start_idx:end_idx,Nlevels:1:-1) ! kg/kg
       cospstateIN%co2         = mr_co2                                   ! kg/kg
 
-      write(*,*) 'QL: before call subsample_and_optics...'
+      !write(*,*) 'QL: before call subsample_and_optics...'
       !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
       ! Generate subcolumns and compute optical inputs.
       !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -434,13 +479,13 @@ module fms_cosp_interface_mod
           dem_c(start_idx:end_idx,nLevels:1:-1),dem_s(start_idx:end_idx,nLevels:1:-1),         &
           cospstateIN,cospIN)
 
-      write(*,*) 'QL: after call subsample_and_optics...'
-      write(*,*) 'QL: before call COSP_SIMULATOR...'
+      !write(*,*) 'QL: after call subsample_and_optics...'
+      !write(*,*) 'QL: before call COSP_SIMULATOR...'
       !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
       ! Call COSP
       !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
       cosp_status = COSP_SIMULATOR(cospIN, cospstateIN, cospOUT, start_idx, end_idx, .false.)
-      write(*,*) 'QL: after call COSP_SIMULATOR...'
+      !write(*,*) 'QL: after call COSP_SIMULATOR...'
       do ij=1,size(cosp_status,1)
         if (cosp_status(ij) .ne. '') print*,trim(cosp_status(ij))
       end do
@@ -449,11 +494,10 @@ module fms_cosp_interface_mod
   end subroutine fms_cosp_interface
   
   
-  
   ! subroutine fms_run_cosp(Time, Time_diag, rad_lat, rad_lon, p_full_in, p_half_in, z_full_in, z_half_in, &
   !       temp_in, q_in, rh_in, cf_rad, reff_rad, qcl_rad, conv_rain, conv_snow, ls_rain, ls_snow, &
   !       t_surf_in, landmask_in, u_wind_in, v_wind_in, z_surf_in)
-  subroutine fms_run_cosp(Time, Time_diag, rad_lat, rad_lon, p_full_in, &
+  subroutine fms_run_cosp(Time, Time_diag, is, ie, js, je, rad_lat, rad_lon, p_full_in, &
     p_half_in, z_full_in, z_half_in, temp_in, q_in, rh_in, cf_rad, reff_rad, &
     qcl_rad, t_surf_in, landmask_in, u_wind_in, v_wind_in, z_surf_in)
 
@@ -461,6 +505,7 @@ module fms_cosp_interface_mod
 
     ! Input time
     type(time_type), intent(in)        :: Time, Time_diag
+    integer, intent(in)               :: is, ie, js, je
     real, intent(in), dimension(:,:)   :: rad_lat, rad_lon, t_surf_in, landmask_in, &
                                           u_wind_in, v_wind_in, z_surf_in
             ! conv_rain, conv_snow, ls_rain, ls_snow
@@ -482,8 +527,6 @@ module fms_cosp_interface_mod
     real(wp), dimension(size(temp_in,1),size(temp_in,2)) :: rad_lat_cosp, rad_lon_cosp, sunlit_cosp
     real(wp), dimension(size(temp_in,1),size(temp_in,2),size(temp_in,3),N_HYDRO) :: hydrometeor_Reff
     real(wp) :: sfc_lw_emissivity
-    integer :: Npoints  ! Number of gridpoints
-    integer :: Nlevels  ! Number of model vertical levels
     
     ! -------------- other local variables -------------- !
     integer :: seconds, days, year_in_s
@@ -592,7 +635,7 @@ module fms_cosp_interface_mod
       endif
     endif
 
-    write(*,*) 'QL: after interpolate co2'
+    !write(*,*) 'QL: after interpolate co2'
 
     ! cast into COSP wp format
     rad_lat_cosp = real(rad_lat, kind(wp))
@@ -633,25 +676,26 @@ module fms_cosp_interface_mod
     flux_cc_rain = 0.0 !conv_rain_cosp
     flux_cc_snow = 0.0 !conv_snow_cosp
 
-    dtau_strat = 0.0
+    dtau_strat = 0.4
     dtau_conv = 0.0
-    dlw_emissivity_strat = 0.0
+    dlw_emissivity_strat = 0.8
     dlw_emissivity_conv = 0.0
 
     !do i = 1,N_HYDRO
     !  hydrometeor_Reff(:,:,:,i) = reff_rad_cosp
     !end do
-    hydrometeor_Reff = 0.0
-  
+    hydrometeor_Reff(:,:,:,1) = reff_rad_cosp
+    !hydrometeor_Reff = 0.0
+
     sfc_lw_emissivity = 1.0
 
     !Calculate Npoints and Nlevels
-    Npoints = int(size(temp_in,2)*size(temp_in,1))
-    Nlevels = int(size(temp_in,3))
+    !Npoints = int(size(temp_in,2)*size(temp_in,1))
+    !Nlevels = int(size(temp_in,3))
 
-    write(*,*) 'QL: before call cosp interface'
+    !write(*,*) 'QL: before call cosp interface'
 
-    call fms_cosp_interface(Npoints, Nlevels, rad_lat_cosp, rad_lon_cosp, &
+    call fms_cosp_interface(rad_lat_cosp, rad_lon_cosp, &
               p_full_cosp, p_half_cosp, z_full_cosp, z_half_cosp, temp_cosp, &
               q_cosp, rh_cosp, tot_cld_amt, conv_cld_amt, &
               mmr_ls_liq, mmr_ls_ice, mmr_cc_liq, mmr_cc_ice, &
@@ -661,12 +705,12 @@ module fms_cosp_interface_mod
               dlw_emissivity_conv, ozone_cosp, co2_cosp, hydrometeor_Reff, &
               t_surf_cosp, landmask_cosp, u_wind_cosp, v_wind_cosp, sunlit_cosp, &
               z_surf_cosp, sfc_lw_emissivity) 
-    write(*,*) 'QL: after call cosp interface'
+    !write(*,*) 'QL: after call cosp interface'
 
     !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     ! Output
     !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    !call write_cosp2_output(Npoints, Ncolumns, Nlevels, zlev(1,Nlevels:1:-1), lon, lat, cospOUT, foutput)
+    call output_cosp_fields(Time_diag, is, ie, js, je)
 
   end subroutine fms_run_cosp
 
@@ -733,6 +777,46 @@ module fms_cosp_interface_mod
 
   end subroutine select_simulator
 
+
+  !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  ! Register output variables according to cospOUT flags
+  !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  subroutine diag_field_init(Time, axes)
+  
+    type(time_type), intent(in) :: Time
+    integer, dimension(4), intent(in) :: axes
+    
+    if (associated(cospOUT%isccp_totalcldarea)) then
+      id_cltisccp = register_diag_field &
+        (mod_name, 'cltisccp', axes(1:2), Time, &
+        'Total Cloud Fraction as Calculated by the ISCCP Simulator', &
+        'percent', mask_variant=.true., missing_value=missing_value)
+    endif
+
+  end subroutine diag_field_init
+
+
+  subroutine output_cosp_fields(Time_diag, is, ie, js, je)
+    type(time_type), intent(in) :: Time_diag
+    integer, intent(in) :: is, ie, js, je
+    integer :: Nlat, Nlon
+    logical :: used
+    real, allocatable, dimension(:,:) :: y2save
+    
+    ! Note that is, ie for lons, js, je for lats.
+    Nlon = ie - is + 1
+    Nlat = je - js + 1
+
+    allocate(y2save(Nlon,Nlat))
+    
+    ! Cast data from type real(wp) to real.
+    if (id_cltisccp > 0) then
+      call map_point_to_ll(Nlon, Nlat, geomode, x1=real(cospOUT%isccp_totalcldarea), y2=y2save)
+      used = send_data(id_cltisccp, y2save, Time_diag, is, js, mask=y2save/=missing_value )
+    endif
+
+  end subroutine output_cosp_fields 
+  
 
   !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  
   ! SUBROUTINE subsample_and_optics

@@ -787,7 +787,7 @@ endif
 #endif
 
 if (do_cloud_simple .and. do_cosp) then
-  call fms_cosp_init(is, ie, js, je, axes, Time, rad_lonb_2d, rad_latb_2d, Time_step_in)
+  call fms_cosp_init(is, ie, js, je, num_levels, get_axis_id(), Time, rad_lonb_2d, rad_latb_2d, Time_step_in)
 endif
 
 if(turb) then
@@ -1188,11 +1188,10 @@ endif
 
 if (do_cloud_simple .and. do_cosp) then
   ! Check input parameters again!!!
-  call fms_run_cosp(Time, Time+Time_step, rad_lat, rad_lon, p_full(:,:,:,current),  &
-              p_half(:,:,:,current), z_full(:,:,:,current), z_half(:,:,:,current),  & 
-              tg(:,:,:,previous), grid_tracers(:,:,:,previous,nsphum), RH(:,:,:),   &
-              cf_rad(:,:,:), reff_rad(:,:,:), qcl_rad(:,:,:),                       &
-              t_surf(:,:), land_ones(:,:), u_surf(:,:), v_surf(:,:), z_surf(:,:))
+  call fms_run_cosp(Time, Time+Time_step, is, ie, js, je, rad_lat, rad_lon, p_full(:,:,:,current), &
+          p_half(:,:,:,current), z_full(:,:,:,current), z_half(:,:,:,current), tg(:,:,:,previous), &
+          grid_tracers(:,:,:,previous,nsphum), RH(:,:,:), cf_rad(:,:,:), reff_rad(:,:,:),          &
+          qcl_rad(:,:,:), t_surf(:,:), land_ones(:,:), u_surf(:,:), v_surf(:,:), z_surf(:,:))
 endif
 
 
