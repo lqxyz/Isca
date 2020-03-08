@@ -22,7 +22,7 @@ contains
 ! Set up the call to the Socrates radiation scheme
 ! -----------------------------------------------------------------------------
 !DIAG Added Time
-subroutine socrates_calc(Time_diag,control, spectrum,                                    &
+subroutine socrates_calc(Time_diag,control, spectrum,                          &
   n_profile, n_layer, n_cloud_layer, n_aer_mode,                               &
   cld_subcol_gen, cld_subcol_req,                                              &
   p_layer, t_layer, t_layer_boundaries, d_mass, density,                       &
@@ -33,7 +33,9 @@ subroutine socrates_calc(Time_diag,control, spectrum,                           
   cld_frac, reff_rad, mmr_cl_rad,                                              &
   flux_direct, flux_down, flux_up,                                             &
   flux_direct_clear, flux_down_clear, flux_up_clear,                           &
-  heating_rate, spectral_olr, tot_cloud_cover)
+  heating_rate, spectral_olr, tot_cloud_cover,                                 &
+  cloud_absorptivity, ls_cloud_absorptivity, cnv_cloud_absorptivity,           &
+  cloud_extinction,   ls_cloud_extinction,   cnv_cloud_extinction)
 
 use rad_pcf
 use def_control,  only: StrCtrl
@@ -138,11 +140,30 @@ real(r_def), intent(out) :: flux_up_clear(n_profile, 0:n_layer)
 real(r_def), intent(out) :: heating_rate(n_profile, n_layer)
 !   Heating rate (Ks-1)
 
-REAL(r_def), INTENT(inout), optional :: spectral_olr(:,:)
+REAL(r_def), intent(inout), optional :: spectral_olr(:,:)
 !   Spectral OLR
+
+! Cloud diagnostics
 real(r_def), intent(out), optional :: tot_cloud_cover(n_profile)
 !   Total cloud cover
-
+real(r_def), intent(out), optional :: cloud_absorptivity(n_profile, n_layer)
+!   Absorptivity of cloud weighted by cloud fraction
+!   and upward clear-sky infra-red flux.
+real(r_def), intent(out), optional :: ls_cloud_absorptivity(n_profile, n_layer)
+!   Absorptivity of layer cloud weighted by cloud fraction
+!   and upward clear-sky infra-red flux.
+real(r_def), intent(out), optional :: cnv_cloud_absorptivity(n_profile, n_layer)
+!   Absorptivity of conv.cloud weighted by cloud fraction
+!   and upward clear-sky infra-red flux.
+real(r_def), intent(out), optional :: cloud_extinction(n_profile, n_layer)
+!   Absorptivity of cloud weighted by cloud fraction
+!   and downward clear-sky solar flux.
+real(r_def), intent(out), optional :: ls_cloud_extinction(n_profile, n_layer)
+!   Absorptivity of layer cloud weighted by cloud fraction
+!   and downward clear-sky solar flux.
+real(r_def), intent(out), optional :: cnv_cloud_extinction(n_profile, n_layer)
+!   Absorptivity of conv.cloud weighted by cloud fraction
+!   and downward clear-sky solar flux.
 
 ! Dimensions:
 TYPE (StrDim) :: dimen
@@ -222,10 +243,31 @@ do l=1, n_profile
   if (present(spectral_olr)) then
      spectral_olr(l,:) = radout%flux_up_clear_band(l,0,:)
   endif
-  if (present(tot_cloud_cover)) then
-    tot_cloud_cover(l) = radout%tot_cloud_cover(l)
- endif
 end do
+
+! cloud diagnostics
+if (present(tot_cloud_cover)) then
+  tot_cloud_cover = radout%tot_cloud_cover
+endif
+
+if (present(cloud_absorptivity)) then
+  cloud_absorptivity = radout%cloud_absorptivity
+endif
+if (present(ls_cloud_absorptivity)) then
+  ls_cloud_absorptivity = radout%ls_cloud_absorptivity
+endif
+if (present(cnv_cloud_absorptivity)) then
+  cnv_cloud_absorptivity = radout%cnv_cloud_absorptivity
+endif
+if (present(cloud_extinction)) then
+  cloud_extinction = radout%cloud_extinction
+endif
+if (present(ls_cloud_extinction)) then
+  ls_cloud_extinction = radout%ls_cloud_extinction
+endif
+if (present(cnv_cloud_extinction)) then
+  cnv_cloud_extinction = radout%cnv_cloud_extinction
+endif
 
 call deallocate_out(radout)
 call deallocate_aer_prsc(aer)

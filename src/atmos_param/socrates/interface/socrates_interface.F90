@@ -539,9 +539,11 @@ SUBROUTINE socrates_init(is, ie, js, je, num_levels, axes, Time, lat, lonb, latb
        output_heating_rate, output_flux_down, output_flux_up,        &
        output_flux_down_clr, output_flux_up_clr,                     &
        do_cloud_simple,                                              &
-       !optionals
-       output_soc_spectral_olr, output_flux_direct,                  &
-       output_flux_direct_clr, t_half_level_out, tot_cloud_cover )
+       output_soc_spectral_olr, output_flux_direct,                  & ! optionals
+       output_flux_direct_clr, t_half_level_out, tot_cloud_cover,    &
+       output_cloud_absorptivity, output_ls_cloud_absorptivity,      &
+       output_cnv_cloud_absorptivity, output_cloud_extinction,       &
+       output_ls_cloud_extinction, output_cnv_cloud_extinction )
 
     use realtype_rd
     use read_control_mod
@@ -594,8 +596,15 @@ SUBROUTINE socrates_init(is, ie, js, je, num_levels, axes, Time, lat, lonb, latb
     real(r_def), intent(out), optional :: output_flux_direct(:,:,:)
     real(r_def), intent(out), optional :: output_flux_direct_clr(:,:,:)
     real(r_def), intent(out), optional :: output_soc_spectral_olr(:,:,:)
-    real(r_def), intent(out), optional :: t_half_level_out(size(fms_temp,1),size(fms_temp,2),size(fms_temp,3)+1)
+    real(r_def), intent(out), optional :: t_half_level_out(size(fms_temp,1), size(fms_temp,2),size(fms_temp,3)+1)
+    
     real(r_def), intent(out), optional :: tot_cloud_cover(:,:)
+    real(r_def), intent(out), optional :: output_cloud_absorptivity(:,:,:)
+    real(r_def), intent(out), optional :: output_ls_cloud_absorptivity(:,:,:)
+    real(r_def), intent(out), optional :: output_cnv_cloud_absorptivity(:,:,:)
+    real(r_def), intent(out), optional :: output_cloud_extinction(:,:,:)
+    real(r_def), intent(out), optional :: output_ls_cloud_extinction(:,:,:)
+    real(r_def), intent(out), optional :: output_cnv_cloud_extinction(:,:,:) 
 
     ! Hi-res output
     INTEGER, PARAMETER :: out_unit=20
@@ -606,7 +615,9 @@ SUBROUTINE socrates_init(is, ie, js, je, num_levels, axes, Time, lat, lonb, latb
     real(r_def), dimension(n_profile, n_layer) :: input_p, input_t, input_mixing_ratio, &
          input_d_mass, input_density, input_layer_heat_capacity, &
          soc_heating_rate, input_o3_mixing_ratio, &
-         input_co2_mixing_ratio,z_full_reshaped, input_cld_frac, input_reff_rad, input_mmr_cl_rad
+         input_co2_mixing_ratio,z_full_reshaped, input_cld_frac, input_reff_rad, input_mmr_cl_rad, &
+         cloud_absorptivity, ls_cloud_absorptivity, cnv_cloud_absorptivity, &
+         cloud_extinction, ls_cloud_extinction, cnv_cloud_extinction 
 
     real(r_def), dimension(n_profile, 0:n_layer) :: input_p_level, input_t_level, soc_flux_direct, &
          soc_flux_down, soc_flux_up, soc_flux_direct_clr, soc_flux_down_clr, soc_flux_up_clr, z_half_reshaped
@@ -614,13 +625,11 @@ SUBROUTINE socrates_init(is, ie, js, je, num_levels, axes, Time, lat, lonb, latb
     real(r_def), dimension(n_profile) :: input_t_surf, input_cos_zenith_angle, input_solar_irrad, &
          input_orog_corr, input_planet_albedo, soc_tot_cloud_cover
 
-
     ! Socrates options
     integer(i_def) :: input_n_cloud_layer
     integer(i_def) :: input_n_aer_mode
     integer(i_def) :: input_cld_subcol_gen
     integer(i_def) :: input_cld_subcol_req
-
 
     ! Dimensions:
     type(StrDim) :: dimen
@@ -748,12 +757,11 @@ SUBROUTINE socrates_init(is, ie, js, je, num_levels, axes, Time, lat, lonb, latb
     n_profile_chunk = n_profile / n_chunk_loop
 
     DO i_chunk=1,n_chunk_loop
-
         idx_chunk_start = (i_chunk-1)*chunk_size + 1
         idx_chunk_end   = (i_chunk)*chunk_size
 
         if (soc_lw_mode==.TRUE.) then
-        CALL socrates_calc(Time_diag, control_calc, spectrum_calc,                       &
+          CALL socrates_calc(Time_diag, control_calc, spectrum_calc,                       &
             n_profile_chunk, n_layer, input_n_cloud_layer, input_n_aer_mode,             &
             input_cld_subcol_gen, input_cld_subcol_req,                                  &
             input_p(idx_chunk_start:idx_chunk_end,:),                                    &
@@ -782,11 +790,14 @@ SUBROUTINE socrates_init(is, ie, js, je, num_levels, axes, Time, lat, lonb, latb
             soc_flux_down_clr(idx_chunk_start:idx_chunk_end,:),                          &
             soc_flux_up_clr(idx_chunk_start:idx_chunk_end,:),                            &
             soc_heating_rate(idx_chunk_start:idx_chunk_end,:),                           &
-            soc_spectral_olr(idx_chunk_start:idx_chunk_end,:),                           &
-            soc_tot_cloud_cover(idx_chunk_start:idx_chunk_end))
+            spectral_olr=soc_spectral_olr(idx_chunk_start:idx_chunk_end,:),              &
+            tot_cloud_cover=soc_tot_cloud_cover(idx_chunk_start:idx_chunk_end),          &
+            cloud_absorptivity=cloud_absorptivity(idx_chunk_start:idx_chunk_end,:),      &
+            ls_cloud_absorptivity=ls_cloud_absorptivity(idx_chunk_start:idx_chunk_end,:),& 
+            cnv_cloud_absorptivity=cnv_cloud_absorptivity(idx_chunk_start:idx_chunk_end,:))
 
         else
-        CALL socrates_calc(Time_diag, control_calc, spectrum_calc,                       &
+          CALL socrates_calc(Time_diag, control_calc, spectrum_calc,                       &
             n_profile_chunk, n_layer, input_n_cloud_layer, input_n_aer_mode,             &
             input_cld_subcol_gen, input_cld_subcol_req,                                  &
             input_p(idx_chunk_start:idx_chunk_end,:),                                    &
@@ -814,7 +825,10 @@ SUBROUTINE socrates_init(is, ie, js, je, num_levels, axes, Time, lat, lonb, latb
             soc_flux_direct_clr(idx_chunk_start:idx_chunk_end,:),                        &
             soc_flux_down_clr(idx_chunk_start:idx_chunk_end,:),                          &
             soc_flux_up_clr(idx_chunk_start:idx_chunk_end,:),                            &
-            soc_heating_rate(idx_chunk_start:idx_chunk_end,:))
+            soc_heating_rate(idx_chunk_start:idx_chunk_end,:),                           & 
+            cloud_extinction=cloud_extinction(idx_chunk_start:idx_chunk_end,:),          &
+            ls_cloud_extinction=ls_cloud_extinction(idx_chunk_start:idx_chunk_end,:),    & 
+            cnv_cloud_extinction=cnv_cloud_extinction(idx_chunk_start:idx_chunk_end,:))
         endif
 
     ENDDO
@@ -840,14 +854,37 @@ SUBROUTINE socrates_init(is, ie, js, je, num_levels, axes, Time, lat, lonb, latb
         tot_cloud_cover(:,:) = reshape(soc_tot_cloud_cover(:), (/si,sj/))
     endif
 
+    if(present(output_cloud_absorptivity)) then
+        output_cloud_absorptivity(:,:,:) = reshape(cloud_absorptivity(:,:),(/si,sj,sk/))
+    endif
+    if(present(output_ls_cloud_absorptivity)) then
+        output_ls_cloud_absorptivity(:,:,:) = reshape(ls_cloud_absorptivity(:,:),(/si,sj,sk/))
+    endif
+    if(present(output_cnv_cloud_absorptivity)) then
+        output_cnv_cloud_absorptivity(:,:,:) = reshape(cnv_cloud_absorptivity(:,:),(/si,sj,sk/))
+    endif
+
+    if(present(output_cloud_extinction)) then
+        output_cloud_extinction(:,:,:) = reshape(cloud_extinction(:,:),(/si,sj,sk/))
+    endif
+    if(present(output_ls_cloud_extinction)) then
+        output_ls_cloud_extinction(:,:,:) = reshape(ls_cloud_extinction(:,:),(/si,sj,sk/))
+    endif
+    if(present(output_cnv_cloud_extinction)) then
+        output_cnv_cloud_extinction(:,:,:) = reshape(cnv_cloud_extinction(:,:),(/si,sj,sk/))
+    endif
+
     if (soc_lw_mode == .TRUE.) then
         output_soc_spectral_olr(:,:,:) = reshape(soc_spectral_olr(:,:),(/si,sj,int(n_soc_bands_lw,i_def) /))
     endif
 
   end subroutine socrates_interface
 
-subroutine run_socrates(Time, Time_diag, rad_lat, rad_lon, temp_in, q_in, t_surf_in, p_full_in, p_half_in, z_full_in, z_half_in, albedo_in, &
-       temp_tend, net_surf_sw_down, surf_lw_down, delta_t, do_cloud_simple, cf_rad, reff_rad, qcl_rad)
+subroutine run_socrates(Time, Time_diag, rad_lat, rad_lon, temp_in, q_in, t_surf_in,    &
+    p_full_in, p_half_in, z_full_in, z_half_in, albedo_in, temp_tend, net_surf_sw_down, &
+    surf_lw_down, delta_t, do_cloud_simple, cf_rad, reff_rad, qcl_rad,                  &
+    cloud_absorptivity, ls_cloud_absorptivity, cnv_cloud_absorptivity,                  &
+    cloud_extinction,   ls_cloud_extinction,   cnv_cloud_extinction)
 
     use astronomy_mod, only: diurnal_solar
     use constants_mod,         only: pi, wtmco2, wtmozone, rdgas, gas_constant
@@ -857,13 +894,15 @@ subroutine run_socrates(Time, Time_diag, rad_lat, rad_lon, temp_in, q_in, t_surf
     ! Input time
     type(time_type), intent(in)           :: Time, Time_diag
     real, intent(in), dimension(:,:)      :: rad_lat, rad_lon, t_surf_in, albedo_in
-    real, intent(in), dimension(:,:,:)   :: temp_in, p_full_in, q_in, z_full_in
-    real, intent(in), dimension(:,:,:)  :: p_half_in, z_half_in
+    real, intent(in), dimension(:,:,:)    :: temp_in, p_full_in, q_in, z_full_in
+    real, intent(in), dimension(:,:,:)    :: p_half_in, z_half_in
     real, intent(inout), dimension(:,:,:) :: temp_tend
-    real, intent(out), dimension(:,:)   :: net_surf_sw_down, surf_lw_down
+    real, intent(out), dimension(:,:)     :: net_surf_sw_down, surf_lw_down
     real, intent(in) :: delta_t
     logical, intent(in) :: do_cloud_simple
-    real, intent(in), dimension(:,:,:) :: cf_rad, reff_rad, qcl_rad
+    real, intent(in),  dimension(:,:,:)   :: cf_rad, reff_rad, qcl_rad
+    real, intent(out), dimension(:,:,:)   :: cloud_absorptivity, ls_cloud_absorptivity, cnv_cloud_absorptivity, &
+                                             cloud_extinction,   ls_cloud_extinction,   cnv_cloud_extinction
 
     integer(i_def) :: n_profile, n_layer
 
@@ -873,7 +912,11 @@ subroutine run_socrates(Time, Time_diag, rad_lat, rad_lon, temp_in, q_in, t_surf
                                              output_heating_rate_sw, output_heating_rate_lw, output_heating_rate_total, &
                                              output_heating_rate_sw_clr, output_heating_rate_lw_clr, &
                                              z_full_soc, cld_frac_soc, reff_rad_soc, mmr_cl_rad_soc, qcl_rad_soc, &
-                                             cld_frac_soc_clr, reff_rad_soc_clr, mmr_cl_rad_soc_clr
+                                             cld_frac_soc_clr, reff_rad_soc_clr, mmr_cl_rad_soc_clr, &
+                                             cloud_absorptivity_soc, ls_cloud_absorptivity_soc, cnv_cloud_absorptivity_soc, &
+                                             cloud_extinction_soc,   ls_cloud_extinction_soc,   cnv_cloud_extinction_soc
+
+
     real(r_def), dimension(size(temp_in,1), &
         size(temp_in,2), size(temp_in,3)+1) :: p_half_soc, t_half_out, z_half_soc, output_soc_flux_sw_down, &
                                             output_soc_flux_sw_up, output_soc_flux_lw_down, output_soc_flux_lw_up, &
@@ -1243,7 +1286,10 @@ subroutine run_socrates(Time, Time_diag, rad_lat, rad_lon, temp_in, q_in, t_surf
         !optional outs
         output_soc_spectral_olr = outputted_soc_spectral_olr,              &
         t_half_level_out = t_half_out,                                     &
-        tot_cloud_cover = tot_cloud_cover )
+        tot_cloud_cover = tot_cloud_cover,                                 &
+        output_cloud_absorptivity=cloud_absorptivity_soc,                         &
+        output_ls_cloud_absorptivity=ls_cloud_absorptivity_soc,                   &
+        output_cnv_cloud_absorptivity=cnv_cloud_absorptivity_soc )
 
     tg_tmp_soc = tg_tmp_soc + output_heating_rate_lw*delta_t !Output heating rate in K/s, so is a temperature tendency
     surf_lw_down(:,:) = REAL(output_soc_flux_lw_down(:,:, n_layer+1))
@@ -1261,13 +1307,16 @@ subroutine run_socrates(Time, Time_diag, rad_lat, rad_lon, temp_in, q_in, t_surf
     ! SW calculation
     ! Retrieve output_heating_rate, and downward surface SW and LW fluxes
     soc_lw_mode = .FALSE.
-    CALL socrates_interface(Time, rad_lat_soc, rad_lon_soc, soc_lw_mode,     &
-        tg_tmp_soc, q_soc, ozone_soc, co2_soc, t_surf_for_soc, p_full_soc,  &
-        p_half_soc, z_full_soc, z_half_soc, albedo_soc, coszen, rrsun,      &
-        n_profile, n_layer, cld_frac_soc, reff_rad_soc, mmr_cl_rad_soc,     &
-        output_heating_rate_sw, output_soc_flux_sw_down, output_soc_flux_sw_up, &
-        output_soc_flux_sw_down_clr, output_soc_flux_sw_up_clr,             &
-        do_cloud_simple)
+
+    CALL socrates_interface(Time, rad_lat_soc, rad_lon_soc, soc_lw_mode,         &
+        tg_tmp_soc, q_soc, ozone_soc, co2_soc, t_surf_for_soc, p_full_soc,       &
+        p_half_soc, z_full_soc, z_half_soc, albedo_soc, coszen, rrsun,           &
+        n_profile, n_layer, cld_frac_soc, reff_rad_soc, mmr_cl_rad_soc,          &
+        output_heating_rate_sw, output_soc_flux_sw_down, output_soc_flux_sw_up,  &
+        output_soc_flux_sw_down_clr, output_soc_flux_sw_up_clr, do_cloud_simple, &
+        output_cloud_extinction=cloud_extinction_soc,                            &
+        output_ls_cloud_extinction=ls_cloud_extinction_soc,                      &
+        output_cnv_cloud_extinction=cnv_cloud_extinction_soc)
 
     tg_tmp_soc = tg_tmp_soc + output_heating_rate_sw*delta_t !Output heating rate in K/s, so is a temperature tendency
     net_surf_sw_down(:,:) = REAL(output_soc_flux_sw_down(:,:, n_layer+1)-output_soc_flux_sw_up(:,:,n_layer+1) )
@@ -1285,6 +1334,15 @@ subroutine run_socrates(Time, Time_diag, rad_lat, rad_lon, temp_in, q_in, t_surf
 
     temp_tend(:,:,:) = temp_tend(:,:,:) + real(output_heating_rate_sw)
     output_heating_rate_total = output_heating_rate_lw + output_heating_rate_sw
+
+    ! get outputs for cloud absoptivity and extinction
+    cloud_absorptivity = REAL(cloud_absorptivity_soc)
+    ls_cloud_absorptivity = REAL(ls_cloud_absorptivity_soc)
+    cnv_cloud_absorptivity = REAL(cnv_cloud_absorptivity_soc)
+
+    cloud_extinction = REAL(cloud_extinction_soc)
+    ls_cloud_extinction = REAL(ls_cloud_extinction_soc)
+    cnv_cloud_extinction = REAL(cnv_cloud_extinction_soc)
 
     if(store_intermediate_rad)then
         ! required for calculation
@@ -1461,7 +1519,7 @@ subroutine run_socrates(Time, Time_diag, rad_lat, rad_lon, temp_in, q_in, t_surf
         used = send_data ( id_soc_spectral_olr, outputted_soc_spectral_olr, Time_diag)
     endif
     if(id_soc_tot_cloud_cover > 0) then
-        used = send_data ( id_soc_tot_cloud_cover, tot_cloud_cover*1e2, Time_diag)
+        used = send_data ( id_soc_tot_cloud_cover, REAL(tot_cloud_cover)*1e2, Time_diag)
     endif
     ! Diagnostics sent
 
