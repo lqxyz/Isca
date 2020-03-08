@@ -1,7 +1,7 @@
 module fms_cosp_config_mod
   ! This module is modified from
   ! https://github.com/CFMIP/COSPv2.0/blob/master/driver/src/cosp2_test.f90
-  use cosp_kinds,          only: wp   
+  use cosp_kinds,          only: wp
   USE MOD_COSP_CONFIG,     ONLY: R_UNDEF,PARASOL_NREFL,LIDAR_NCAT,LIDAR_NTYPE,SR_BINS,    &
                                  N_HYDRO,RTTOV_MAX_CHANNELS,numMISRHgtBins,               &
                                  cloudsat_DBZE_BINS,LIDAR_NTEMP,calipso_histBsct,         &
@@ -18,7 +18,7 @@ module fms_cosp_config_mod
                                  modis_histTauEdges,tau_binEdges,                         &
                                  modis_histTauCenters,tau_binCenters,ntauV1p4,            &
                                  tau_binBoundsV1p4,tau_binEdgesV1p4, tau_binCentersV1p4,  &
-                                 grLidar532_histBsct,atlid_histBsct,vgrid_zu,vgrid_zl,    & 
+                                 grLidar532_histBsct,atlid_histBsct,vgrid_zu,vgrid_zl,    &
                                  Nlvgrid_local  => Nlvgrid,                               &
                                  vgrid_z_local  => vgrid_z,cloudsat_preclvl
 
@@ -27,17 +27,17 @@ module fms_cosp_config_mod
 
   implicit none
 
-  integer ::                       & !
+  integer ::                       &
       Ncolumns=20,                 & ! Number of subcolumns
       Npoints_it=16,               & !5000,& ! Number of gridpoints to be processed in one iteration
       Nlvgrid=40,                  & ! Number of vertical levels for statistical outputs (USE_VGRID=.true.)
       surface_radar=0,             & ! surface=1/spaceborne=0
       cloudsat_use_gas_abs=1,      & ! Include gaseous absorption (1=yes/0=no)
       cloudsat_do_ray=0,           & ! Calculate output Rayleigh (1=yes/0=no)
-      lidar_ice_type=0,            & ! Ice particle shape in lidar calculations 
+      lidar_ice_type=0,            & ! Ice particle shape in lidar calculations
                                      ! (0=ice-spheres/1=ice-non-spherical)
       overlap=3,                   & ! Overlap type: 1=max, 2=rand, 3=max/rand
-      isccp_topheight=1,           & ! ISCCP cloud top height 
+      isccp_topheight=1,           & ! ISCCP cloud top height
                                      !
                                      ! 1 = adjust top height using both a computed
                                      ! infrared brightness temperature and the visible
@@ -54,20 +54,22 @@ module fms_cosp_config_mod
                                      ! calculation is most appropriate to compare to ISCCP
                                      ! IR only algortihm (i.e. you can compare to nighttime
                                      ! ISCCP data with this option)
-  
+
       isccp_topheight_direction=2, & ! ISCCP cloud top height direction
                                      ! direction for finding atmosphere pressure level
                                      ! with interpolated temperature equal to the radiance
                                      ! determined cloud-top temperature
+                                     !
                                      ! 1 = find the *lowest* altitude (highest pressure) level
                                      ! with interpolated temperature equal to the radiance
                                      ! determined cloud-top temperature
+                                     !
                                      ! 2 = find the *highest* altitude (lowest pressure) level
                                      ! with interpolated temperature equal to the radiance
                                      ! determined cloud-top temperature. This is the
                                      ! default value since V4.0 of the ISCCP simulator.
                                      ! ONLY APPLICABLE IF top_height EQUALS 1 or 3
- 
+
       rttov_platform=1,            & ! RTTOV: Satellite platform
       rttov_satellite=15,          & ! RTTOV: Satellite
       rttov_instrument=5,          & ! RTTOV: Instrument
@@ -77,22 +79,22 @@ module fms_cosp_config_mod
       cloudsat_radar_freq=94.0,    & ! CloudSat radar frequency (GHz)
       cloudsat_k2=-1,              & ! |K|^2, -1=use frequency dependent default
       rttov_ZenAng=50.0,           & ! RTTOV: Satellite Zenith Angle
-      !co2=5.241e-04,               & ! CO2 mixing ratio
+      !co2=5.241e-04,              & ! CO2 mixing ratio, use co2_ppmv instead
       ch4=9.139e-07,               & ! CH4 mixing ratio
       n2o=4.665e-07,               & ! n2o mixing ratio
       co=2.098e-07                   ! co mixing ratio
   logical ::                       & !
-      use_vgrid=.false.,            & ! Use fixed vertical grid for outputs?
-      csat_vgrid=.false.,           & ! CloudSat vertical grid? (if .true. then the CloudSat standard grid
+      use_vgrid=.false.,           & ! Use fixed vertical grid for outputs?
+      csat_vgrid=.false.,          & ! CloudSat vertical grid? (if .true. then the CloudSat standard grid
                                      ! is used for the outputs. USE_VGRID needs also be .true.)
-      use_precipitation_fluxes=.false.          ! True if precipitation fluxes are input to the algorithm 
+      use_precipitation_fluxes=.false.          ! True if precipitation fluxes are input to the algorithm
   integer,dimension(RTTOV_MAX_CHANNELS) :: &
       rttov_Channels ! =(/1, 2, 3/)             ! RTTOV: Channel numbers
   real(wp),dimension(RTTOV_MAX_CHANNELS) :: &
       rttov_Surfem !=(/0.0, 0.0, 0.0/)          ! RTTOV: Surface emissivity
   character(len=64) :: &
       cloudsat_micro_scheme='MMF_v3_single_moment'   ! Microphysical scheme used in cloudsat radar simulator
-                                                      !'MMF_v3.5_two_moment'
+                                                     !'MMF_v3.5_two_moment'
 
   ! COSP time stepping and spatial sampling
   ! **** Copied from socrates_config_mod ****
@@ -105,193 +107,207 @@ module fms_cosp_config_mod
   real    :: del_sw  = 0.0
   logical :: tidally_locked = .false.
   logical :: frierson_solar_rad = .false.
+ 
+  ! for ozone
+  logical :: do_read_ozone = .false.              ! read ozone from an external file?
+  character(len=256) :: ozone_file_name = 'ozone' ! Name of file containing ozone field
+                                                  ! n.b. don't need to include '.nc'
+  character(len=256) :: ozone_field_name = 'ozone'! Name of ozone variable in ozone file
+  logical :: input_o3_file_is_mmr = .true.        ! Does the ozone input file contain values as a mass mixing ratio
+                                                  ! (set to true) or a volume mixing ratio (set to false)?
+  ! for co2
+  logical :: do_read_co2 = .false.                ! read co2 from an external file?
+  character(len=256) :: co2_file_name = 'co2'     ! Name of file containing co2 field
+                                                  ! - n.b. don't need to include '.nc'
+  character(len=256) :: co2_field_name = 'co2'    ! Name of co2 variable in co2 file
+  real :: co2_ppmv = 300.                         ! Default co2 concentration in PPMV!
+                                                  ! COSP default value is about 345 ppm (5.241e-04kg/kg)
+  logical :: input_co2_mmr=.false.                ! COSP wants input concentrations as mmr not vmr, so need to 
+                                                  ! make sure input data supplied is converted if necessary
 
-  logical :: do_read_ozone = .false. ! read ozone from an external file?
-  character(len=256) :: ozone_file_name = 'ozone' !Name of file containing ozone field - n.b. don't need to include '.nc'
-  character(len=256) :: ozone_field_name = 'ozone' !Name of ozone variable in ozone file
-  logical :: input_o3_file_is_mmr = .true. ! Does the ozone input file contain values as a mass mixing ratio (set to true) or a volume mixing ratio (set to false)?
-  logical :: do_read_co2 = .false. ! read ozone from an external file?
-  character(len=256) :: co2_file_name = 'co2' !Name of file containing co2 field - n.b. don't need to include '.nc'
-  character(len=256) :: co2_field_name = 'co2' !Name of co2 variable in co2 file  
-  real :: co2_ppmv = 300. !Default CO2 concentration in PPMV ! COSP default value is about 345 ppm (5.241e-04kg/kg)
-  logical :: input_co2_mmr=.false. !Socrates wants input concentrations as mmr not vmr, so need to make sure input data supplied is converted if necessary
-
-
-  namelist/cosp_input_nml/ overlap, isccp_topheight, isccp_topheight_direction,     &
+  namelist/cosp_input_nml/ &
+      ! ones to control the cosp simulator
+      overlap, isccp_topheight, isccp_topheight_direction,                          &
       npoints_it, ncolumns, use_vgrid, Nlvgrid, csat_vgrid,                         &
-      cloudsat_radar_freq, surface_radar, cloudsat_use_gas_abs,cloudsat_do_ray,     &
+      cloudsat_radar_freq, surface_radar, cloudsat_use_gas_abs, cloudsat_do_ray,    &
       cloudsat_k2, cloudsat_micro_scheme, lidar_ice_type, use_precipitation_fluxes, &
       rttov_platform, rttov_satellite, rttov_Instrument, rttov_Nchannels,           &
       rttov_Channels, rttov_Surfem, rttov_ZenAng, ch4, n2o, co,                     & ! co2
+     
+      ! ----- The followings are modified from socrates interface ----- !
+      ! ones to control cosp timestep and radiation
       dt_cosp, dt_cosp_avg, solday, do_cosp_time_avg, tidally_locked,               &
       frierson_solar_rad, equinox_day, del_sol, del_sw,                             &
+      ! ones related to read ozone and co2
       do_read_ozone, ozone_file_name, ozone_field_name, input_o3_file_is_mmr,       &
       do_read_co2, co2_file_name, co2_field_name, input_co2_mmr, co2_ppmv
-  
+
+
   ! ================== Output namelist ================== !
   logical :: &
       !- CloudSat
-      Lcfaddbze94=.true., &
-      Ldbze94=.true., &
-     
+      Lcfaddbze94=.false., &
+      Ldbze94=.false., &
+
       !- CALIPSO
-      Latb532=.true., &
-      LcfadLidarsr532=.true., &
-      Lclcalipso=.true., &
-      Lclhcalipso=.true., &
-      Lcllcalipso=.true., &
-      Lclmcalipso=.true., &
-      Lcltcalipso=.true., &
-      LparasolRefl=.true., &
-     
+      Latb532=.false., &
+      LcfadLidarsr532=.false., &
+      Lclcalipso=.false., &
+      Lclhcalipso=.false., &
+      Lcllcalipso=.false., &
+      Lclmcalipso=.false., &
+      Lcltcalipso=.false., &
+      LparasolRefl=.false., &
+
       ! CALIPSO phase diagnostics
-      Lclcalipsoliq=.true., &
-      Lclcalipsoice=.true., &
-      Lclcalipsoun=.true., &
-      Lclcalipsotmp=.true., &
-      Lclcalipsotmpliq=.true., &
-      Lclcalipsotmpice=.true., &
-      Lclcalipsotmpun=.true., &
-      Lclhcalipsoliq=.true., &
-      Lcllcalipsoliq=.true., &
-      Lclmcalipsoliq=.true., &
-      Lcltcalipsoliq=.true., &
-      Lclhcalipsoice=.true., &
-      Lcllcalipsoice=.true., &
-      Lclmcalipsoice=.true., &
-      Lcltcalipsoice=.true., &
-      Lclhcalipsoun=.true., &
-      Lcllcalipsoun=.true., &
-      Lclmcalipsoun=.true., &
-      Lcltcalipsoun=.true., &
-      
+      Lclcalipsoliq=.false., &
+      Lclcalipsoice=.false., &
+      Lclcalipsoun=.false., &
+      Lclcalipsotmp=.false., &
+      Lclcalipsotmpliq=.false., &
+      Lclcalipsotmpice=.false., &
+      Lclcalipsotmpun=.false., &
+      Lclhcalipsoliq=.false., &
+      Lcllcalipsoliq=.false., &
+      Lclmcalipsoliq=.false., &
+      Lcltcalipsoliq=.false., &
+      Lclhcalipsoice=.false., &
+      Lcllcalipsoice=.false., &
+      Lclmcalipsoice=.false., &
+      Lcltcalipsoice=.false., &
+      Lclhcalipsoun=.false., &
+      Lcllcalipsoun=.false., &
+      Lclmcalipsoun=.false., &
+      Lcltcalipsoun=.false., &
+
       ! CALIPSO OPAQ diagnostics
-      Lclopaquecalipso=.true., &
-      Lclthincalipso=.true., &
-      Lclzopaquecalipso=.true., &
-      Lclcalipsoopaque=.true., &
-      Lclcalipsothin=.true., &
-      Lclcalipsozopaque=.true., &
-      Lclcalipsoopacity=.true., &
-      Lclopaquetemp=.true.,  &
-      Lclthintemp=.true.,  &
-      Lclzopaquetemp=.true.,  &
-      Lclopaquemeanz=.true.,  &
-      Lclthinmeanz=.true.,  &
-      Lclthinemis=.true.,  &
-      Lclopaquemeanzse=.true., &
-      Lclthinmeanzse=.true.,  &
-      Lclzopaquecalipsose=.true., &
-      
+      Lclopaquecalipso=.false., &
+      Lclthincalipso=.false., &
+      Lclzopaquecalipso=.false., &
+      Lclcalipsoopaque=.false., &
+      Lclcalipsothin=.false., &
+      Lclcalipsozopaque=.false., &
+      Lclcalipsoopacity=.false., &
+      Lclopaquetemp=.false.,  &
+      Lclthintemp=.false.,  &
+      Lclzopaquetemp=.false.,  &
+      Lclopaquemeanz=.false.,  &
+      Lclthinmeanz=.false.,  &
+      Lclthinemis=.false.,  &
+      Lclopaquemeanzse=.false., &
+      Lclthinmeanzse=.false.,  &
+      Lclzopaquecalipsose=.false., &
+
       ! GROUND LIDAR diagnostics
-      LlidarBetaMol532gr=.true., &
-      LcfadLidarsr532gr=.true., &
-      Latb532gr=.true., &
-      LclgrLidar532=.true., &
-      LclhgrLidar532=.true., &
-      LcllgrLidar532=.true., &
-      LclmgrLidar532=.true., &
-      LcltgrLidar532=.true., &
-      
+      LlidarBetaMol532gr=.false., &
+      LcfadLidarsr532gr=.false., &
+      Latb532gr=.false., &
+      LclgrLidar532=.false., &
+      LclhgrLidar532=.false., &
+      LcllgrLidar532=.false., &
+      LclmgrLidar532=.false., &
+      LcltgrLidar532=.false., &
+
       ! ATLID diagnostics
-      LlidarBetaMol355=.true., &
-      LcfadLidarsr355=.true., &
-      Latb355=.true., &
-      Lclatlid=.true., &
-      Lclhatlid=.true., &
-      Lcllatlid=.true., &
-      Lclmatlid=.true., &
-      Lcltatlid=.true., &
-      
+      LlidarBetaMol355=.false., &
+      LcfadLidarsr355=.false., &
+      Latb355=.false., &
+      Lclatlid=.false., &
+      Lclhatlid=.false., &
+      Lcllatlid=.false., &
+      Lclmatlid=.false., &
+      Lcltatlid=.false., &
+
       !- ISCCP
-      Lalbisccp=.true., &
-      Lboxptopisccp=.true., &
-      Lboxtauisccp=.true., &
-      Lpctisccp=.true., &
-      Lclisccp=.true., &
-      Ltauisccp=.true., &
-      Lcltisccp=.true., &
-      Lmeantbisccp=.true., &
-      Lmeantbclrisccp=.true., &
-      
+      Lalbisccp=.false., &
+      Lboxptopisccp=.false., &
+      Lboxtauisccp=.false., &
+      Lpctisccp=.false., &
+      Lclisccp=.false., &
+      Ltauisccp=.false., &
+      Lcltisccp=.false., &
+      Lmeantbisccp=.false., &
+      Lmeantbclrisccp=.false., &
+
       !- MISR
-      LclMISR=.true., &
+      LclMISR=.false., &
 
       !- Use lidar and radar
-      Lclcalipso2=.true., &
-      Lcltlidarradar=.true., &
-      Lcloudsat_tcc=.true., &
-      Lcloudsat_tcc2=.true., &
+      Lclcalipso2=.false., &
+      Lcltlidarradar=.false., &
+      Lcloudsat_tcc=.false., &
+      Lcloudsat_tcc2=.false., &
 
       !- These are provided for debugging or special purposes
-      Lfracout=.true., &
-      LlidarBetaMol532=.true., &
+      Lfracout=.false., &
+      LlidarBetaMol532=.false., &
 
       !- MODIS
-      Lcltmodis=.true., &
-      Lclwmodis=.true., &
-      Lclimodis=.true., &
-      Lclhmodis=.true., &
-      Lclmmodis=.true., &
-      Lcllmodis=.true., &
-      Ltautmodis=.true., &
-      Ltauwmodis=.true., &
-      Ltauimodis=.true., &
-      Ltautlogmodis=.true., &
-      Ltauwlogmodis=.true., &
-      Ltauilogmodis=.true., &
-      Lreffclwmodis=.true., &
-      Lreffclimodis=.true., &
-      Lpctmodis=.true., &
-      Llwpmodis=.true., &
-      Liwpmodis=.true., &
-      Lclmodis=.true., &
-      
-      !- RTTOV &
-      Ltbrttov=.true., &
-      
-      ! -CLOUDSAT precipitation frequency/occurence diagnostics
-      Lptradarflag0=.true., &
-      Lptradarflag1=.true., &
-      Lptradarflag2=.true., &
-      Lptradarflag3=.true., &
-      Lptradarflag4=.true., &
-      Lptradarflag5=.true., &
-      Lptradarflag6=.true., &
-      Lptradarflag7=.true., &
-      Lptradarflag8=.true., &
-      Lptradarflag9=.true., &
-      Lradarpia=.true., &
-    
-      !- CloudSat+MODIS joint diagnostics
-      Lwr_occfreq=.true., &
-      Lcfodd=.true.
+      Lcltmodis=.false., &
+      Lclwmodis=.false., &
+      Lclimodis=.false., &
+      Lclhmodis=.false., &
+      Lclmmodis=.false., &
+      Lcllmodis=.false., &
+      Ltautmodis=.false., &
+      Ltauwmodis=.false., &
+      Ltauimodis=.false., &
+      Ltautlogmodis=.false., &
+      Ltauwlogmodis=.false., &
+      Ltauilogmodis=.false., &
+      Lreffclwmodis=.false., &
+      Lreffclimodis=.false., &
+      Lpctmodis=.false., &
+      Llwpmodis=.false., &
+      Liwpmodis=.false., &
+      Lclmodis=.false.,  &
 
-  namelist/cosp_output_nml/Lcfaddbze94,Ldbze94,Latb532,LcfadLidarsr532,Lclcalipso,&
-                Lclhcalipso,Lcllcalipso,Lclmcalipso,Lcltcalipso,LparasolRefl,     &
-                Lclcalipsoliq,Lclcalipsoice,Lclcalipsoun,Lclcalipsotmp,           &
-                Lclcalipsotmpliq,Lclcalipsotmpice,Lclcalipsotmpun,Lclhcalipsoliq, &
-                Lcllcalipsoliq,Lclmcalipsoliq,Lcltcalipsoliq,Lclhcalipsoice,      &
-                Lcllcalipsoice,Lclmcalipsoice,Lcltcalipsoice,Lclhcalipsoun,       &
-                Lcllcalipsoun,Lclmcalipsoun,Lcltcalipsoun,Lclopaquecalipso,       &
-                Lclthincalipso,Lclzopaquecalipso,Lclcalipsoopaque,Lclcalipsothin, &
-                Lclcalipsozopaque,Lclcalipsoopacity,Lclopaquetemp,Lclthintemp,    &
-                Lclzopaquetemp,Lclopaquemeanz,Lclthinmeanz,Lclthinemis,           &
-                Lclopaquemeanzse,Lclthinmeanzse,Lclzopaquecalipsose,              &
-                LlidarBetaMol532gr,LcfadLidarsr532gr,Latb532gr,LclgrLidar532,     &
-                LclhgrLidar532,LcllgrLidar532,LclmgrLidar532,LcltgrLidar532,      &
-                LlidarBetaMol355,LcfadLidarsr355,Latb355,Lclatlid,                &
-                Lclhatlid,Lcllatlid,Lclmatlid,Lcltatlid,Lalbisccp,Lboxptopisccp,  &
-                Lboxtauisccp,Lpctisccp,Lclisccp,Ltauisccp,Lcltisccp,Lmeantbisccp, &
-                Lmeantbclrisccp,LclMISR,Lclcalipso2,Lcltlidarradar,               &
-                Lcloudsat_tcc, Lcloudsat_tcc2, Lfracout,                          &
-                LlidarBetaMol532,Lcltmodis,Lclwmodis,Lclimodis,Lclhmodis,         &
-                Lclmmodis,Lcllmodis,Ltautmodis,Ltauwmodis,Ltauimodis,             &
-                Ltautlogmodis,Ltauwlogmodis,Ltauilogmodis,Lreffclwmodis,          &
-                Lreffclimodis,Lpctmodis,Llwpmodis,Liwpmodis,Lclmodis,Ltbrttov,    &
-                Lptradarflag0,Lptradarflag1,Lptradarflag2,Lptradarflag3,          &
-                Lptradarflag4,Lptradarflag5,Lptradarflag6,Lptradarflag7,          &
-                Lptradarflag8,Lptradarflag9,Lradarpia,                            &
-                Lwr_occfreq, Lcfodd      
+      !- RTTOV &
+      Ltbrttov=.false., &
+
+      ! -CLOUDSAT precipitation frequency/occurence diagnostics
+      Lptradarflag0=.false., &
+      Lptradarflag1=.false., &
+      Lptradarflag2=.false., &
+      Lptradarflag3=.false., &
+      Lptradarflag4=.false., &
+      Lptradarflag5=.false., &
+      Lptradarflag6=.false., &
+      Lptradarflag7=.false., &
+      Lptradarflag8=.false., &
+      Lptradarflag9=.false., &
+      Lradarpia=.false.,     &
+
+      !- CloudSat+MODIS joint diagnostics
+      Lwr_occfreq=.false., &
+      Lcfodd=.false.
+
+  namelist/cosp_output_nml/ &
+      Lcfaddbze94,Ldbze94,Latb532,LcfadLidarsr532,Lclcalipso,           &
+      Lclhcalipso,Lcllcalipso,Lclmcalipso,Lcltcalipso,LparasolRefl,     &
+      Lclcalipsoliq,Lclcalipsoice,Lclcalipsoun,Lclcalipsotmp,           &
+      Lclcalipsotmpliq,Lclcalipsotmpice,Lclcalipsotmpun,Lclhcalipsoliq, &
+      Lcllcalipsoliq,Lclmcalipsoliq,Lcltcalipsoliq,Lclhcalipsoice,      &
+      Lcllcalipsoice,Lclmcalipsoice,Lcltcalipsoice,Lclhcalipsoun,       &
+      Lcllcalipsoun,Lclmcalipsoun,Lcltcalipsoun,Lclopaquecalipso,       &
+      Lclthincalipso,Lclzopaquecalipso,Lclcalipsoopaque,Lclcalipsothin, &
+      Lclcalipsozopaque,Lclcalipsoopacity,Lclopaquetemp,Lclthintemp,    &
+      Lclzopaquetemp,Lclopaquemeanz,Lclthinmeanz,Lclthinemis,           &
+      Lclopaquemeanzse,Lclthinmeanzse,Lclzopaquecalipsose,              &
+      LlidarBetaMol532gr,LcfadLidarsr532gr,Latb532gr,LclgrLidar532,     &
+      LclhgrLidar532,LcllgrLidar532,LclmgrLidar532,LcltgrLidar532,      &
+      LlidarBetaMol355,LcfadLidarsr355,Latb355,Lclatlid,                &
+      Lclhatlid,Lcllatlid,Lclmatlid,Lcltatlid,Lalbisccp,Lboxptopisccp,  &
+      Lboxtauisccp,Lpctisccp,Lclisccp,Ltauisccp,Lcltisccp,Lmeantbisccp, &
+      Lmeantbclrisccp,LclMISR,Lclcalipso2,Lcltlidarradar,               &
+      Lcloudsat_tcc, Lcloudsat_tcc2, Lfracout,                          &
+      LlidarBetaMol532,Lcltmodis,Lclwmodis,Lclimodis,Lclhmodis,         &
+      Lclmmodis,Lcllmodis,Ltautmodis,Ltauwmodis,Ltauimodis,             &
+      Ltautlogmodis,Ltauwlogmodis,Ltauilogmodis,Lreffclwmodis,          &
+      Lreffclimodis,Lpctmodis,Llwpmodis,Liwpmodis,Lclmodis,Ltbrttov,    &
+      Lptradarflag0,Lptradarflag1,Lptradarflag2,Lptradarflag3,          &
+      Lptradarflag4,Lptradarflag5,Lptradarflag6,Lptradarflag7,          &
+      Lptradarflag8,Lptradarflag9,Lradarpia,                            &
+      Lwr_occfreq, Lcfodd
 
 end module fms_cosp_config_mod

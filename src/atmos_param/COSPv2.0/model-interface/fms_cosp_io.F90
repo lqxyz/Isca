@@ -1,12 +1,13 @@
 module fms_cosp_io_mod
+  ! The following subroutines are modified from am3/src/atmos_param/cos/cosp_io.F90
+  ! AM3 source code can be obtained from https://www.gfdl.noaa.gov/am3/#acquire
+
   use fms_mod, only: error_mesg, FATAL
   use fms_cosp_config_mod
 
   implicit none
 
   contains
-  
-  ! Copied from am3/src/atmos_param/cos/cosp_io.F90
 
   !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   !----------------- SUBROUTINE MAP_POINT_TO_LL---------------------
@@ -25,7 +26,7 @@ module fms_cosp_io_mod
     character(len=128) :: proname='MAP_POINT_TO_LL'
 
     Npoints = Nx*Ny
-   
+
     px=0
     py=0
     ! Obtain pointers to do the mapping
@@ -33,16 +34,16 @@ module fms_cosp_io_mod
       do j=1,Ny
         do i=1,Nx
             k = (j-1)*Nx+i
-            px(k) = i  
-            py(k) = j  
+            px(k) = i
+            py(k) = j
         enddo
       enddo
-    else if (geomode == 3) then ! (lon,lat) mode
+    else if (geomode == 3) then ! (lat,lon) mode
       do j=1,Nx
         do i=1,Ny
             k = (j-1)*Ny+i
             px(k) = j
-            py(k) = i  
+            py(k) = i
         enddo
       enddo
     else
@@ -56,7 +57,7 @@ module fms_cosp_io_mod
       Mj = size(y2,2)
       if (Mi*Mj /= Ni) then
         call error_mesg ('cosp_io:map_point_to_ll',  &
-         ' -- '//trim(proname)//': Nlon*Nlat /= Npoints (opt 1)', FATAL)
+            ' -- '//trim(proname)//': Nlon*Nlat /= Npoints (opt 1)', FATAL)
       endif
       do i=1,Npoints
         y2(px(i),py(i)) = x1(i)
@@ -69,11 +70,11 @@ module fms_cosp_io_mod
       Mk = size(y3,3)
       if (Mi*Mj /= Ni) then
         call error_mesg ('cosp_io:map_point_to_ll',  &
-         ' -- '//trim(proname)//': Nlon*Nlat /= Npoints (opt 2)', FATAL)
+            ' -- '//trim(proname)//': Nlon*Nlat /= Npoints (opt 2)', FATAL)
       endif
       if (Nj /= Mk) then
         call error_mesg ('cosp_io:map_point_to_ll',  &
-         ' -- '//trim(proname)//': Nj /= Mk (opt 2)', FATAL)
+            ' -- '//trim(proname)//': Nj /= Mk (opt 2)', FATAL)
       endif
       do k=1,Mk
        do i=1,Npoints
@@ -90,15 +91,15 @@ module fms_cosp_io_mod
       Ml = size(y4,4)
       if (Mi*Mj /= Ni) then
         call error_mesg ('cosp_io:map_point_to_ll',  &
-         ' -- '//trim(proname)//': Nlon*Nlat /= Npoints (opt 3)', FATAL)
+            ' -- '//trim(proname)//': Nlon*Nlat /= Npoints (opt 3)', FATAL)
       endif
       if (Nj /= Mk) then
         call error_mesg ('cosp_io:map_point_to_ll',  &
-         ' -- '//trim(proname)//': Nj /= Mk (opt 3)', FATAL)
+            ' -- '//trim(proname)//': Nj /= Mk (opt 3)', FATAL)
       endif
       if (Nk /= Ml) then
         call error_mesg ('cosp_io:map_point_to_ll',  &
-                 ' -- '//trim(proname)//': Nk /= Ml (opt 3)', FATAL)
+            ' -- '//trim(proname)//': Nk /= Ml (opt 3)', FATAL)
       endif
       do l=1,Ml
        do k=1,Mk
@@ -119,19 +120,19 @@ module fms_cosp_io_mod
       Mm = size(y5,5)
       if (Mi*Mj /= Ni) then
         call error_mesg ('cosp_io:map_point_to_ll',  &
-               ' -- '//trim(proname)//': Nlon*Nlat /= Npoints (opt 4)', FATAL)
+            ' -- '//trim(proname)//': Nlon*Nlat /= Npoints (opt 4)', FATAL)
       endif
       if (Nj /= Mk) then
         call error_mesg ('cosp_io:map_point_to_ll',  &
-                 ' -- '//trim(proname)//': Nj /= Mk (opt 4)', FATAL)
+            ' -- '//trim(proname)//': Nj /= Mk (opt 4)', FATAL)
       endif
       if (Nk /= Ml) then
         call error_mesg ('cosp_io:map_point_to_ll',  &
-                 ' -- '//trim(proname)//': Nk /= Ml (opt 4)', FATAL)
+            ' -- '//trim(proname)//': Nk /= Ml (opt 4)', FATAL)
       endif
       if (Nl /= Mm) then
         call error_mesg ('cosp_io:map_point_to_ll',  &
-                 ' -- '//trim(proname)//': Nl /= Mm (opt 4)', FATAL)
+            ' -- '//trim(proname)//': Nl /= Mm (opt 4)', FATAL)
       endif
       do m=1,Mm
        do l=1,Ml
@@ -144,7 +145,7 @@ module fms_cosp_io_mod
       enddo
     else
       call error_mesg ('cosp_io:map_point_to_ll',  &
-               ' -- '//trim(proname)//': wrong option', FATAL)
+          ' -- '//trim(proname)//': wrong option', FATAL)
     endif
 
   END SUBROUTINE MAP_POINT_TO_LL
@@ -163,7 +164,7 @@ module fms_cosp_io_mod
     integer :: Ni,Nj,Nk,Nl,Nm
     integer :: Mi,Mj,Mk,Ml
     character(len=128) :: proname='MAP_LL_TO_POINT'
-    
+
     px=0
     py=0
     if (Nx*Ny < Np) then
@@ -173,11 +174,11 @@ module fms_cosp_io_mod
     do j=1,Ny
        do i=1,Nx
           k = (j-1)*Nx+i
-          px(k) = i  
-          py(k) = j  
+          px(k) = i
+          py(k) = j
        enddo
     enddo
-    
+
     if (present(x2).and.present(y1)) then
        Ni = size(x2,1)
        Nj = size(x2,2)
@@ -273,7 +274,7 @@ module fms_cosp_io_mod
     else
        print *, ' -- '//trim(proname)//': wrong option'
        stop
-    endif 
+    endif
   END SUBROUTINE MAP_LL_TO_POINT
 
 end module fms_cosp_io_mod
