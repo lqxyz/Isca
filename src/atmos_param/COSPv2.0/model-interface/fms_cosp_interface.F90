@@ -314,17 +314,17 @@ module fms_cosp_interface_mod
 
     implicit none
 
-    real(wp), dimension(:,:),   intent(in) :: rad_lon, rad_lat
-    real(wp), dimension(:,:,:), intent(in) :: fms_p_full, fms_p_half,      &
-        fms_z_full, fms_z_half, fms_temp, fms_spec_hum, fms_rh,            &
-        fms_tot_cld_amt, fms_conv_cld_amt, fms_mmr_ls_liq, fms_mmr_ls_ice, &
-        fms_mmr_cc_liq, fms_mmr_cc_ice, fms_dtau_strat, fms_dtau_conv,     &
-        fms_dlw_emissivity_strat, fms_dlw_emissivity_conv, fms_mmr_ozone,  &
-        fms_mmr_co2, fms_flux_ls_rain, fms_flux_ls_snow, fms_flux_ls_graupel, &
-        fms_flux_cc_rain, fms_flux_cc_snow
+    real(wp), dimension(:,:),     intent(in) :: rad_lon, rad_lat
+    real(wp), dimension(:,:,:),   intent(in) :: fms_p_full, fms_z_full,        &
+        fms_temp, fms_spec_hum, fms_rh, fms_tot_cld_amt, fms_conv_cld_amt,     &
+        fms_mmr_ls_liq, fms_mmr_ls_ice, fms_mmr_cc_liq, fms_mmr_cc_ice,        &
+        fms_dtau_strat, fms_dtau_conv,fms_dlw_emissivity_strat,                &
+        fms_dlw_emissivity_conv, fms_mmr_ozone, fms_mmr_co2, fms_flux_ls_rain, &
+        fms_flux_ls_snow, fms_flux_ls_graupel, fms_flux_cc_rain, fms_flux_cc_snow
+    real(wp), dimension(:,:,:),   intent(in) :: fms_p_half, fms_z_half
     real(wp), dimension(:,:,:,:), intent(in) :: fms_hydrometeor_Reff !(lat,lon,lev,nhydro)
     real(wp), dimension(:,:),     intent(in) ::  fms_t_surf, fms_z_surf, &
-        fms_landmask, fms_u_wind, fms_v_wind, fms_sunlit
+                                  fms_landmask, fms_u_wind, fms_v_wind, fms_sunlit
     real(wp), intent(in) :: fms_sfc_lw_emissivity
 
     ! --------------- Send to COSP --------------- !
@@ -332,7 +332,7 @@ module fms_cosp_interface_mod
     real(wp), dimension(Npoints, Nlevels) :: p, zlev, T, sh, rh, tca, cca,    &
               mr_lsliq, mr_lsice, mr_ccliq, mr_ccice, dtau_s, dtau_c, dem_s,  &
               dem_c, mr_ozone, fl_lsrain, fl_lssnow, fl_lsgrpl, fl_ccrain, fl_ccsnow
-    real(wp), dimension(Npoints, Nlevels+1) :: ph, zlev_half  ! Check again! Nlevels or Nlevels+1
+    real(wp), dimension(Npoints, Nlevels+1) :: ph, zlev_half
     real(wp), dimension(Npoints, Nlevels, N_HYDRO) :: Reff
     real(wp), dimension(Npoints) :: skt, landmask, u_wind, v_wind, sunlit, surfelev
     real(wp) :: emsfc_lw, mr_co2
@@ -446,13 +446,14 @@ module fms_cosp_interface_mod
       cospstateIN%sunlit      = sunlit(start_idx:end_idx)         ! 0-1
       cospstateIN%skt         = skt(start_idx:end_idx)            ! K
       cospstateIN%surfelev    = surfelev(start_idx:end_idx)       ! m
+      ! In the mask: 1 for land, 0 for sea (refer to lines 463-468 in quickbeam.F90)
       cospstateIN%land        = landmask(start_idx:end_idx)       ! 0-1 (*note* model specific)
       cospstateIN%qv          = sh(start_idx:end_idx,1:Nlevels)   ! kg/kg
       cospstateIN%at          = T(start_idx:end_idx,1:Nlevels)    ! K
       ! Pressure at interface (nlevels+1). Set uppermost interface to 0.
       cospstateIN%pfull       = p(start_idx:end_idx,1:Nlevels)    ! Pa
       cospstateIN%phalf(:,2:Nlevels+1) = ph(start_idx:end_idx,2:Nlevels+1) ! Pa
-      cospstateIN%phalf(:,1)   = 0._wp
+      cospstateIN%phalf(:,1)  = 0._wp
       ! Height at interface (nlevels+1). Set lowermost interface to 0.
       cospstateIN%hgt_matrix_half(:,1:Nlevels) = zlev_half(start_idx:end_idx,2:Nlevels+1) !m not km, right?
       cospstateIN%hgt_matrix_half(:,Nlevels+1) = 0._wp
@@ -471,7 +472,7 @@ module fms_cosp_interface_mod
       !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
       ! Generate subcolumns and compute optical inputs.
       !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-      call subsample_and_optics(nPtsPerIt,nLevels,nColumns,N_HYDRO,overlap,                     &
+      call subsample_and_optics(nPtsPerIt,nLevels,nColumns,N_HYDRO,overlap,                    &
           use_precipitation_fluxes,lidar_ice_type,sd,                                          &
           tca(start_idx:end_idx,Nlevels:1:-1),cca(start_idx:end_idx,Nlevels:1:-1),             &
           fl_lsrain(start_idx:end_idx,Nlevels:1:-1),fl_lssnow(start_idx:end_idx,Nlevels:1:-1), &
@@ -517,14 +518,13 @@ module fms_cosp_interface_mod
     real, intent(in), dimension(:,:,:) :: p_half_in, z_half_in
 
     ! -------------- variables passed to the COSP interface  -------------- !
-    real(wp), dimension(size(temp_in,1),size(temp_in,2),size(temp_in,3)) :: &
-        p_full_cosp, z_full_cosp, temp_cosp, q_cosp, &
-        rh_cosp, cf_rad_cosp, reff_rad_cosp, qcl_rad_cosp,       &
-        ls_cloud_absorptivity_cosp, cnv_cloud_absorptivity_cosp, &
-        ls_cloud_extinction_cosp, cnv_cloud_extinction_cosp, &
-        ls_cloud_tau_cosp, cnv_cloud_tau_cosp
-    real(wp), dimension(size(temp_in,1),size(temp_in,2),size(temp_in,3)+1) :: & 
-        p_half_cosp, z_half_cosp
+    real(wp), dimension(size(temp_in,1),size(temp_in,2),size(temp_in,3)) ::  &
+                    p_full_cosp, z_full_cosp, temp_cosp, q_cosp,             &
+                    rh_cosp, cf_rad_cosp, reff_rad_cosp, qcl_rad_cosp,       &
+                    ls_cloud_absorptivity_cosp, cnv_cloud_absorptivity_cosp, &
+                    ls_cloud_extinction_cosp, cnv_cloud_extinction_cosp,     &
+                    ls_cloud_tau_cosp, cnv_cloud_tau_cosp
+    real(wp), dimension(size(temp_in,1),size(temp_in,2),size(temp_in,3)+1) :: p_half_cosp, z_half_cosp
     real(wp), dimension(size(temp_in,1),size(temp_in,2)) :: &
         t_surf_cosp, landmask_cosp, u_wind_cosp, v_wind_cosp, z_surf_cosp
     real(wp), dimension(size(temp_in,1),size(temp_in,2),size(temp_in,3)) :: &
