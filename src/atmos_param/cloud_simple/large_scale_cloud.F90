@@ -42,9 +42,10 @@ module large_scale_cloud_mod
   real :: adj_polar_power = 2.5
 
   ! Parameters to control linear coefficient profile
-  real :: linear_a_surf = 42
-  real :: linear_a_top  = 12
-  real :: linear_power  = 8.5
+  real :: linear_a_surf = 6
+  real :: linear_a_top  = 4
+  real :: linear_power  = 8
+  real :: rhm = 1.1
 
   ! For slingo80 scheme
   real :: slingo_rhc_low  = 0.8
@@ -61,7 +62,7 @@ module large_scale_cloud_mod
             do_fitted_rhcrit, do_poly_rhcrit, &
             rhc_surf, rhc_top, n_rhc, &
             cf_diag_formula_name, &
-            linear_a_surf, linear_a_top, linear_power, &
+            linear_a_surf, linear_a_top, linear_power, rhm, &
             slingo_rhc_low, slingo_rhc_mid, slingo_rhc_high, &
             do_adjust_low_cld, omega_adj_threshold, &
             do_adjust_polar_cld, qv_polar_val, adj_polar_power
@@ -325,7 +326,7 @@ module large_scale_cloud_mod
                         EXP(1.0 - (ps/p_full(:,:,k))**linear_power)
     end do
 
-    cf = coeff_a * (rh - 1.0) + 1.0
+    cf = coeff_a * (rh - rhm) + 1.0
     cf = MAX(0.0, MIN(1.0, cf))
 
   end subroutine calc_cf_linear
