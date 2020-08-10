@@ -187,7 +187,7 @@ module fms_cosp_interface_mod
         dt_cosp = time_step_seconds !Make sure that dt_cosp is set if it is not specified in the namelist
     endif
 
-    dt_last = -real(dt_cosp) !make sure we are computing radiation at the first time step
+    dt_last = -real(dt_cosp) !make sure we are calling COSP at the first time step
 
     if (dt_cosp .gt. time_step_seconds) then
         res = mod(dt_cosp, time_step_seconds)
