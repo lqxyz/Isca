@@ -44,6 +44,7 @@ atmos_param/COSPv2.0/src/simulator/cosp_misr_interface.F90
 atmos_param/COSPv2.0/src/cosp_stats.F90
 atmos_param/COSPv2.0/src/cosp_config.F90
 atmos_param/COSPv2.0/src/cosp_constants.F90
+atmos_param/COSPv2.0/model-interface/fms_cosp_diagnostics.F90
 atmos_param/COSPv2.0/model-interface/fms_cosp_interface.F90
 atmos_param/COSPv2.0/model-interface/cosp_errorHandling.F90
 atmos_param/COSPv2.0/model-interface/fms_cosp_io.F90

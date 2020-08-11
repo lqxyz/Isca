@@ -1,6 +1,7 @@
 module fms_cosp_config_mod
   ! This module is modified from
   ! https://github.com/CFMIP/COSPv2.0/blob/master/driver/src/cosp2_test.f90
+
   use cosp_kinds,          only: wp
   USE MOD_COSP_CONFIG,     ONLY: R_UNDEF,PARASOL_NREFL,LIDAR_NCAT,LIDAR_NTYPE,SR_BINS,    &
                                  N_HYDRO,RTTOV_MAX_CHANNELS,numMISRHgtBins,               &
@@ -128,7 +129,7 @@ module fms_cosp_config_mod
   namelist/cosp_input_nml/ &
       ! ones to control the cosp simulator
       overlap, isccp_topheight, isccp_topheight_direction,                          &
-      npoints_it, ncolumns, use_vgrid, Nlvgrid, csat_vgrid,                         &
+      Npoints_it, Ncolumns, use_vgrid, Nlvgrid, csat_vgrid,                         &
       cloudsat_radar_freq, surface_radar, cloudsat_use_gas_abs, cloudsat_do_ray,    &
       cloudsat_k2, cloudsat_micro_scheme, lidar_ice_type, use_precipitation_fluxes, &
       rttov_platform, rttov_satellite, rttov_Instrument, rttov_Nchannels,           &

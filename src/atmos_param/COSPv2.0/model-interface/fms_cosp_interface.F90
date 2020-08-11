@@ -40,7 +40,8 @@ module fms_cosp_interface_mod
 
   ! Sef defined modules
   use fms_cosp_config_mod  ! Flags to select which simulator to use
-  use fms_cosp_io_mod,      only:  map_point_to_ll  ! ,map_ll_to_point
+  use fms_cosp_io_mod,      only: map_point_to_ll  ! ,map_ll_to_point
+  use fms_cosp_diags_mod,   only: cosp_diag_field_init, cosp_output_fields
 
   implicit none
 
@@ -287,7 +288,8 @@ module fms_cosp_interface_mod
         Npoints, Ncolumns, Nlevels, Nlvgrid_local, rttov_Nchannels, cospOUT)
 
     !!!! ************ Define ids of output variables ************ !!!!
-    call diag_field_init(Time, axes)
+    !call diag_field_init(Time, axes)
+    call cosp_diag_field_init(Time, axes, Nlevels, Ncolumns, Nlvgrid_local, cospOUT, mod_name)
 
     !--------------------------------------------------------------------
     !   variable geomode indicates that the grid (i,j) => (lon,lat)
@@ -442,7 +444,7 @@ module fms_cosp_interface_mod
       ! Should get input from model....
       cospIN%emsfc_lw         = emsfc_lw
       cospIN%rcfg_cloudsat    = rcfg_cloudsat
-      cospstateIN%hgt_matrix  = zlev(start_idx:end_idx,1:Nlevels) ! km ! It should be m, right??
+      cospstateIN%hgt_matrix  = zlev(start_idx:end_idx,1:Nlevels) ! m
       cospstateIN%sunlit      = sunlit(start_idx:end_idx)         ! 0-1
       cospstateIN%skt         = skt(start_idx:end_idx)            ! K
       cospstateIN%surfelev    = surfelev(start_idx:end_idx)       ! m
@@ -461,7 +463,10 @@ module fms_cosp_interface_mod
       cospstateIN%o3          = mr_ozone(start_idx:end_idx,1:Nlevels) ! kg/kg
       cospstateIN%co2         = mr_co2                                ! kg/kg
 
-      ! write(*,*) 'QL init IN test level order, p:',  cospstateIN%pfull(2,1:Nlevels)
+      ! write(*,*) 'QL init IN test level order, 1:n, p:',  cospstateIN%pfull(2,1:Nlevels)
+      ! write(*,*) 'QL init IN test level order, n:1:-1, p:',  cospstateIN%pfull(2,Nlevels:1:-1)
+      ! write(*,*) 'QL init IN test level order, 1:n, T:',  cospstateIN%at(2,1:Nlevels)
+      ! write(*,*) 'QL init IN test level order, n:1:-1, T:',  cospstateIN%at(2,Nlevels:1:-1)
       ! write(*,*) 'ph=', ph(2,1:Nlevels+1)
       ! write(*,*) 'QL init IN test level order, p_half:', cospstateIN%phalf(2,1:Nlevels+1)
       ! write(*,*) 'QL init IN test level order, zlev:',  cospstateIN%hgt_matrix(2,1:Nlevels)
@@ -472,16 +477,29 @@ module fms_cosp_interface_mod
       !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
       ! Generate subcolumns and compute optical inputs.
       !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+      
+      ! call subsample_and_optics(nPtsPerIt,nLevels,nColumns,N_HYDRO,overlap,                    &
+      !     use_precipitation_fluxes,lidar_ice_type,sd,                                          &
+      !     tca(start_idx:end_idx,Nlevels:1:-1),cca(start_idx:end_idx,Nlevels:1:-1),             &
+      !     fl_lsrain(start_idx:end_idx,Nlevels:1:-1),fl_lssnow(start_idx:end_idx,Nlevels:1:-1), &
+      !     fl_lsgrpl(start_idx:end_idx,Nlevels:1:-1),fl_ccrain(start_idx:end_idx,Nlevels:1:-1), &
+      !     fl_ccsnow(start_idx:end_idx,Nlevels:1:-1),mr_lsliq(start_idx:end_idx,Nlevels:1:-1),  &
+      !     mr_lsice(start_idx:end_idx,Nlevels:1:-1),mr_ccliq(start_idx:end_idx,Nlevels:1:-1),   &
+      !     mr_ccice(start_idx:end_idx,Nlevels:1:-1),Reff(start_idx:end_idx,Nlevels:1:-1,:),     &
+      !     dtau_c(start_idx:end_idx,nLevels:1:-1),dtau_s(start_idx:end_idx,nLevels:1:-1),       &
+      !     dem_c(start_idx:end_idx,nLevels:1:-1),dem_s(start_idx:end_idx,nLevels:1:-1),         &
+      !     cospstateIN,cospIN)
+      
       call subsample_and_optics(nPtsPerIt,nLevels,nColumns,N_HYDRO,overlap,                    &
           use_precipitation_fluxes,lidar_ice_type,sd,                                          &
-          tca(start_idx:end_idx,Nlevels:1:-1),cca(start_idx:end_idx,Nlevels:1:-1),             &
-          fl_lsrain(start_idx:end_idx,Nlevels:1:-1),fl_lssnow(start_idx:end_idx,Nlevels:1:-1), &
-          fl_lsgrpl(start_idx:end_idx,Nlevels:1:-1),fl_ccrain(start_idx:end_idx,Nlevels:1:-1), &
-          fl_ccsnow(start_idx:end_idx,Nlevels:1:-1),mr_lsliq(start_idx:end_idx,Nlevels:1:-1),  &
-          mr_lsice(start_idx:end_idx,Nlevels:1:-1),mr_ccliq(start_idx:end_idx,Nlevels:1:-1),   &
-          mr_ccice(start_idx:end_idx,Nlevels:1:-1),Reff(start_idx:end_idx,Nlevels:1:-1,:),     &
-          dtau_c(start_idx:end_idx,nLevels:1:-1),dtau_s(start_idx:end_idx,nLevels:1:-1),       &
-          dem_c(start_idx:end_idx,nLevels:1:-1),dem_s(start_idx:end_idx,nLevels:1:-1),         &
+          tca(start_idx:end_idx,:),cca(start_idx:end_idx,:),             &
+          fl_lsrain(start_idx:end_idx,:),fl_lssnow(start_idx:end_idx,:), &
+          fl_lsgrpl(start_idx:end_idx,:),fl_ccrain(start_idx:end_idx,:), &
+          fl_ccsnow(start_idx:end_idx,:),mr_lsliq(start_idx:end_idx,:),  &
+          mr_lsice(start_idx:end_idx,:),mr_ccliq(start_idx:end_idx,:),   &
+          mr_ccice(start_idx:end_idx,:),Reff(start_idx:end_idx,:,:),     &
+          dtau_c(start_idx:end_idx,:),dtau_s(start_idx:end_idx,:),       &
+          dem_c(start_idx:end_idx,:),dem_s(start_idx:end_idx,:),         &
           cospstateIN,cospIN)
 
       !write(*,*) 'QL: after call subsample_and_optics...'
@@ -561,8 +579,7 @@ module fms_cosp_interface_mod
       ! Output
       !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
       !if (js==1) write(*,*) 'QL else-clause, before output, dt_last', is, ie, js, je, dt_last, r_total_seconds
-      !call output_cosp_fields(Time_diag, is, ie, js, je)
-      call output_cosp_fields(Time_diag, size(temp_in,1), size(temp_in,2))
+      call cosp_output_fields(Time_diag, size(temp_in,1), size(temp_in,2), Ncolumns, Nlevels, geomode, cospOUT)
       !if (js==1) write(*,*) 'QL  else-clause, after output', dt_last, r_total_seconds
 
       return !not time yet
@@ -721,8 +738,8 @@ module fms_cosp_interface_mod
     !do i = 1,N_HYDRO
     !  hydrometeor_Reff(:,:,:,i) = reff_rad_cosp
     !end do
-    !hydrometeor_Reff(:,:,:,1) = reff_rad_cosp
     hydrometeor_Reff = 0.0
+    hydrometeor_Reff(:,:,:,I_LSCLIQ) = reff_rad_cosp ! Large-scale (stratiform) liquid (defined in Line 74)
 
     sfc_lw_emissivity = 1.0
 
@@ -743,8 +760,7 @@ module fms_cosp_interface_mod
     ! Output
     !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     !if (js==1) write(*,*) 'QL before output, dt_last', is, ie, js, je, dt_last, r_total_seconds
-    !call output_cosp_fields(Time_diag, is, ie, js, je)
-    call output_cosp_fields(Time_diag, size(temp_in,1), size(temp_in,2))
+    call cosp_output_fields(Time_diag, size(temp_in,1), size(temp_in,2), Ncolumns, Nlevels, geomode, cospOUT)
     !if (js==1) write(*,*) 'QL after output', dt_last, r_total_seconds
 
   end subroutine fms_run_cosp
@@ -811,88 +827,6 @@ module fms_cosp_interface_mod
     if (Ltbrttov) Lrttov = .true.
 
   end subroutine select_simulator
-
-
-  !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-  ! Register output variables according to cospOUT flags
-  !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-  subroutine diag_field_init(Time, axes)
-
-    type(time_type), intent(in) :: Time
-    integer, dimension(4), intent(in) :: axes
-
-    ! ISCCP simulator outputs
-    if (associated(cospOUT%isccp_totalcldarea)) then
-      id_cltisccp = register_diag_field &
-        (mod_name, 'cltisccp', axes(1:2), Time, &
-        'ISCCP Total Cloud Fraction', &
-        '%', missing_value=missing_value) ! mask_variant=.true., 
-    endif
-
-    ! CALIPSO simulator outputs
-    if (associated(cospOUT%calipso_cldlayer)) then
-      ! Low-level
-      id_cllcalipso = register_diag_field &
-        (mod_name, 'cllcalipso', axes(1:2), Time, &
-        'CALIPSO Low Level Cloud Fraction', &
-        '%', missing_value=missing_value)
-      ! Mid-level
-      id_clmcalipso = register_diag_field &
-        (mod_name, 'clmcalipso', axes(1:2), Time, &
-        'CALIPSO Mid Level Cloud Fraction', &
-        '%', missing_value=missing_value)
-      ! High-level
-      id_clhcalipso = register_diag_field &
-        (mod_name, 'clhcalipso', axes(1:2), Time, &
-        'CALIPSO High Level Cloud Fraction', &
-        '%', missing_value=missing_value)
-      ! Total
-      id_cltcalipso = register_diag_field &
-        (mod_name, 'cltcalipso', axes(1:2), Time, &
-        'CALIPSO Total Cloud Fraction', &
-        '%', missing_value=missing_value)
-    endif
-
-  end subroutine diag_field_init
-
-
-  !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-  ! Output the COSP variables
-  !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-  subroutine output_cosp_fields(Time_diag, Nlon, Nlat)
-    type(time_type), intent(in) :: Time_diag
-    integer, intent(in) :: Nlat, Nlon
-    logical :: used
-    real, dimension(Nlon,Nlat) :: y2save
-
-    ! Cast data from type real(wp) to real.
-
-    if (id_cltisccp > 0) then
-      call map_point_to_ll(Nlon, Nlat, geomode, x1=real(cospOUT%isccp_totalcldarea), y2=y2save)
-      used = send_data(id_cltisccp, y2save, Time_diag) !, mask=y2save/=missing_value)
-    endif
-
-    if (id_cllcalipso > 0) then
-      call map_point_to_ll(Nlon, Nlat, geomode, x1=real(cospOUT%calipso_cldlayer(:,1)), y2=y2save)
-      used = send_data(id_cllcalipso, y2save, Time_diag)
-    endif
-    
-    if (id_clmcalipso > 0) then
-      call map_point_to_ll(Nlon, Nlat, geomode, x1=real(cospOUT%calipso_cldlayer(:,2)), y2=y2save)
-      used = send_data(id_clmcalipso, y2save, Time_diag)
-    endif
-
-    if (id_clhcalipso > 0) then
-      call map_point_to_ll(Nlon, Nlat, geomode, x1=real(cospOUT%calipso_cldlayer(:,3)), y2=y2save)
-      used = send_data(id_clhcalipso, y2save, Time_diag)
-    endif
-    
-    if (id_cltcalipso > 0) then
-      call map_point_to_ll(Nlon, Nlat, geomode, x1=real(cospOUT%calipso_cldlayer(:,4)), y2=y2save)
-      used = send_data(id_cltcalipso, y2save, Time_diag)
-    endif
-  
-  end subroutine output_cosp_fields
 
 
   !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
