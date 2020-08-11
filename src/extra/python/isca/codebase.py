@@ -344,6 +344,7 @@ class COSPCodeBase(SocratesCodeBase):
         super(COSPCodeBase, self).__init__(*args, **kwargs)
         # Remove no compile flag to compile the COSP.
         self.compile_flags.remove('-DCOSP_NO_COMPILE')
+        self.log.info('COSP compilation enabled.')
 
 class GreyCodeBase(CodeBase):
     """The Frierson model.
