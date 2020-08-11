@@ -415,7 +415,7 @@ subroutine cosp_output_fields(Time_diag, Nlon, Nlat, Ncolumns, Nlevels, geomode,
     used = send_data(id_cltisccp, y2, Time_diag, mask=y2/=missing_value)
   endif
   if (id_ctpisccp > 0) then
-    call map_point_to_ll(Nlon, Nlat, geomode, x1=real(cospOUT%isccp_totalcldarea), y2=y2)
+    call map_point_to_ll(Nlon, Nlat, geomode, x1=real(cospOUT%isccp_meanptop), y2=y2)
     used = send_data(id_ctpisccp, y2, Time_diag, mask=y2/=missing_value)
   endif
   if (id_tauisccp > 0) then
@@ -423,11 +423,11 @@ subroutine cosp_output_fields(Time_diag, Nlon, Nlat, Ncolumns, Nlevels, geomode,
     used = send_data(id_tauisccp, y2, Time_diag, mask=y2/=missing_value)
   endif
   if (id_tbisccp > 0) then
-    call map_point_to_ll(Nlon, Nlat, geomode, x1=real(cospOUT%isccp_totalcldarea), y2=y2)
+    call map_point_to_ll(Nlon, Nlat, geomode, x1=real(cospOUT%isccp_meantb), y2=y2)
     used = send_data(id_tbisccp, y2, Time_diag, mask=y2/=missing_value)
   endif
   if (id_tbclrisccp > 0) then
-    call map_point_to_ll(Nlon, Nlat, geomode, x1=real(cospOUT%isccp_totalcldarea), y2=y2)
+    call map_point_to_ll(Nlon, Nlat, geomode, x1=real(cospOUT%isccp_meantbclr), y2=y2)
     used = send_data(id_tbclrisccp, y2, Time_diag, mask=y2/=missing_value)
   endif
 
