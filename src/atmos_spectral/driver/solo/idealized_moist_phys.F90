@@ -22,8 +22,6 @@ use two_stream_gray_rad_mod, only: two_stream_gray_rad_init, two_stream_gray_rad
                                   
 use        cloud_simple_mod, only: cloud_simple_init, cloud_simple_end, cloud_simple
 
-use  fms_cosp_interface_mod, only: fms_cosp_init, fms_cosp_end, fms_run_cosp
-
 use         mixed_layer_mod, only: mixed_layer_init, mixed_layer, mixed_layer_end, albedo_calc
 
 use         lscale_cond_mod, only: lscale_cond_init, lscale_cond, lscale_cond_end
@@ -78,6 +76,13 @@ use rayleigh_bottom_drag_mod, only: rayleigh_bottom_drag_init, compute_rayleigh_
 use socrates_interface_mod
 use soc_constants_mod
 #endif
+
+#ifdef COSP_NO_COMPILE
+  ! COSP_NO_COMPILE not include
+#else
+  use  fms_cosp_interface_mod, only: fms_cosp_init, fms_cosp_end, fms_run_cosp
+#endif
+
 
 implicit none
 private
@@ -821,10 +826,17 @@ if (do_socrates_radiation) then
 endif
 #endif
 
-if (do_cloud_simple .and. do_cosp) then
-  call fms_cosp_init(is, ie, js, je, num_levels, get_axis_id(), Time, &
-                    rad_lonb_2d, rad_latb_2d, Time_step_in)
-endif
+#ifdef COSP_NO_COMPILE
+  if (do_cosp) then
+    call error_mesg('idealized_moist_phys','do_cosp is .true. ' &
+            // 'but compiler flag -D COSP_NO_COMPILE used. Stopping.', FATAL)
+  endif
+#else
+  if (do_cloud_simple .and. do_cosp) then
+    call fms_cosp_init(is, ie, js, je, num_levels, get_axis_id(), Time, &
+                      rad_lonb_2d, rad_latb_2d, Time_step_in)
+  endif
+#endif
 
 if(turb) then
    call vert_turb_driver_init (rad_lonb_2d, rad_latb_2d, ie-is+1,je-js+1, &
@@ -1231,15 +1243,22 @@ if (do_socrates_radiation) then
 endif
 #endif
 
-if (do_cloud_simple .and. do_cosp) then
-  ! Check input parameters again!!!
-  call fms_run_cosp(Time, Time+Time_step, is, ie, js, je, rad_lat, rad_lon, p_full(:,:,:,current), &
-          p_half(:,:,:,current), z_full(:,:,:,current), z_half(:,:,:,current), tg(:,:,:,previous), &
-          grid_tracers(:,:,:,previous,nsphum), RH(:,:,:), cf_rad(:,:,:), reff_rad(:,:,:),          &
-          qcl_rad(:,:,:), t_surf(:,:), land_ones(:,:), u_surf(:,:), v_surf(:,:), z_surf(:,:),      &
-          ls_cloud_absorptivity(:,:,:), cnv_cloud_absorptivity(:,:,:),                             &
-          ls_cloud_extinction(:,:,:),   cnv_cloud_extinction(:,:,:) )
-endif
+#ifdef COSP_NO_COMPILE
+  if (do_cosp) then
+    call error_mesg('idealized_moist_phys','do_cosp is .true. ' &
+            // 'but compiler flag -D COSP_NO_COMPILE used. Stopping.', FATAL)
+  endif
+#else
+  if (do_cloud_simple .and. do_cosp) then
+    ! Check input parameters again!!!
+    call fms_run_cosp(Time, Time+Time_step, is, ie, js, je, rad_lat, rad_lon, p_full(:,:,:,current), &
+            p_half(:,:,:,current), z_full(:,:,:,current), z_half(:,:,:,current), tg(:,:,:,previous), &
+            grid_tracers(:,:,:,previous,nsphum), RH(:,:,:), cf_rad(:,:,:), reff_rad(:,:,:),          &
+            qcl_rad(:,:,:), t_surf(:,:), land_ones(:,:), u_surf(:,:), v_surf(:,:), z_surf(:,:),      &
+            ls_cloud_absorptivity(:,:,:), cnv_cloud_absorptivity(:,:,:),                             &
+            ls_cloud_extinction(:,:,:),   cnv_cloud_extinction(:,:,:) )
+  endif
+#endif
 
 
 if(gp_surface) then
@@ -1454,7 +1473,12 @@ if(do_socrates_radiation) call run_socrates_end
 #endif
 
 if (do_cloud_simple) call cloud_simple_end
-if (do_cloud_simple .and. do_cosp) call fms_cosp_end
+
+#ifdef COSP_NO_COMPILE
+  ! COSP_NO_COMPILE not include
+#else
+  if (do_cloud_simple .and. do_cosp) call fms_cosp_end
+#endif
 
 end subroutine idealized_moist_phys_end
 

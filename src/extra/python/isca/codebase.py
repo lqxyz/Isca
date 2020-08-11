@@ -272,9 +272,15 @@ class IscaCodeBase(CodeBase):
         self.compile_flags.append('-DSOC_NO_COMPILE')
         self.log.info('SOCRATES compilation disabled.')
 
+    def disable_cosp(self):
+        # Add no compile flag for COSP, a collection of cloud simulators
+        self.compile_flags.append('-DCOSP_NO_COMPILE')
+        self.log.info('COSP compilation disabled.')
+
     def __init__(self, *args, **kwargs):
         super(IscaCodeBase, self).__init__(*args, **kwargs)
         self.disable_soc()
+        self.disable_cosp()
 
 class SocratesCodeBase(CodeBase):
     """Isca without RRTM but with the Met Office radiation scheme, Socrates.
@@ -287,6 +293,11 @@ class SocratesCodeBase(CodeBase):
         # add no compile flag
         self.compile_flags.append('-DRRTM_NO_COMPILE')
         self.log.info('RRTM compilation disabled.')
+
+    def disable_cosp(self):
+        # Add no compile flag for COSP
+        self.compile_flags.append('-DCOSP_NO_COMPILE')
+        self.log.info('COSP compilation disabled.')
 
     def simlink_to_soc_code(self):
         #Make symlink to socrates source code if one doesn't already exist.
@@ -322,7 +333,17 @@ class SocratesCodeBase(CodeBase):
     def __init__(self, *args, **kwargs):
         super(SocratesCodeBase, self).__init__(*args, **kwargs)
         self.disable_rrtm()
+        self.disable_cosp()
         self.simlink_to_soc_code()
+
+class COSPCodeBase(SocratesCodeBase):
+    name = 'socrates_cosp'
+    executable_name = 'soc_cosp_isca.x'
+
+    def __init__(self, *args, **kwargs):
+        super(COSPCodeBase, self).__init__(*args, **kwargs)
+        # Remove no compile flag to compile the COSP.
+        self.compile_flags.remove('-DCOSP_NO_COMPILE')
 
 class GreyCodeBase(CodeBase):
     """The Frierson model.
@@ -347,10 +368,16 @@ class GreyCodeBase(CodeBase):
         self.compile_flags.append('-DSOC_NO_COMPILE')
         self.log.info('SOCRATES compilation disabled.')
 
+    def disable_cosp(self):
+        # Add no compile flag for COSP
+        self.compile_flags.append('-DCOSP_NO_COMPILE')
+        self.log.info('COSP compilation disabled.')
+
     def __init__(self, *args, **kwargs):
         super(GreyCodeBase, self).__init__(*args, **kwargs)
         self.disable_rrtm()
         self.disable_soc()
+        self.disable_cosp()
 
 class DryCodeBase(GreyCodeBase):
     """The Held-Suarez model.
