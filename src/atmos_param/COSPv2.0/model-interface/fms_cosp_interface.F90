@@ -520,8 +520,8 @@ module fms_cosp_interface_mod
   subroutine fms_run_cosp(Time, Time_diag, is, ie, js, je, rad_lat, rad_lon, p_full_in,  &
                 p_half_in, z_full_in, z_half_in, temp_in, q_in, rh_in, cf_rad, reff_rad, &
                 qcl_rad, t_surf_in, landmask_in, u_wind_in, v_wind_in, z_surf_in,        &
-                ls_cloud_absorptivity, cnv_cloud_absorptivity,                           &
-                ls_cloud_extinction,   cnv_cloud_extinction)
+                cond_dt_qg, conv_dt_qg, ls_cloud_absorptivity, cnv_cloud_absorptivity,   &
+                ls_cloud_extinction, cnv_cloud_extinction)
     implicit none
 
     ! Input time
@@ -531,6 +531,7 @@ module fms_cosp_interface_mod
                                           u_wind_in, v_wind_in, z_surf_in
     real, intent(in), dimension(:,:,:) :: temp_in, p_full_in, q_in, rh_in, z_full_in,    &
                                           cf_rad, reff_rad, qcl_rad,                     &
+                                          cond_dt_qg, conv_dt_qg,                        &
                                           ls_cloud_absorptivity, cnv_cloud_absorptivity, &
                                           ls_cloud_extinction, cnv_cloud_extinction
     real, intent(in), dimension(:,:,:) :: p_half_in, z_half_in
@@ -541,7 +542,8 @@ module fms_cosp_interface_mod
                     rh_cosp, cf_rad_cosp, reff_rad_cosp, qcl_rad_cosp,       &
                     ls_cloud_absorptivity_cosp, cnv_cloud_absorptivity_cosp, &
                     ls_cloud_extinction_cosp, cnv_cloud_extinction_cosp,     &
-                    ls_cloud_tau_cosp, cnv_cloud_tau_cosp
+                    ls_cloud_tau_cosp, cnv_cloud_tau_cosp,                   &
+                    cond_dt_qg_cosp, conv_dt_qg_cosp
     real(wp), dimension(size(temp_in,1),size(temp_in,2),size(temp_in,3)+1) :: p_half_cosp, z_half_cosp
     real(wp), dimension(size(temp_in,1),size(temp_in,2)) :: &
         t_surf_cosp, landmask_cosp, u_wind_cosp, v_wind_cosp, z_surf_cosp
@@ -686,6 +688,9 @@ module fms_cosp_interface_mod
     reff_rad_cosp = real(reff_rad, kind(wp))
     qcl_rad_cosp = real(qcl_rad, kind(wp))
 
+    cond_dt_qg_cosp = real(cond_dt_qg, kind(wp))
+    conv_dt_qg_cosp = real(conv_dt_qg, kind(wp))
+
     ls_cloud_absorptivity_cosp = real(ls_cloud_absorptivity, kind(wp))
     cnv_cloud_absorptivity_cosp = real(cnv_cloud_absorptivity, kind(wp))
     ls_cloud_extinction_cosp = real(ls_cloud_extinction, kind(wp))
@@ -700,6 +705,13 @@ module fms_cosp_interface_mod
     ozone_cosp = real(ozone_in, kind(wp))
     co2_cosp = real(co2_in, kind(wp))
 
+    ! Convert large-scale and convective sphum tendency to rain flux
+    do k=Nlevels,1,-1
+      dp = p_half_cosp(:,:,k+1) - p_half_cosp(:,:,k)
+      flux_ls_rain(:,:,k) = cond_dt_qg_cosp(:,:,k) * dp / grav
+      flux_cc_rain(:,:,k) = conv_dt_qg_cosp(:,:,k) * dp / grav
+    end do
+
     ! Cloud related variables
     tot_cld_amt = cf_rad_cosp
     conv_cld_amt = 0.0
@@ -707,17 +719,17 @@ module fms_cosp_interface_mod
     mmr_ls_ice = 0.0
     mmr_cc_liq = 0.0
     mmr_cc_ice = 0.0
-    flux_ls_rain = 0.0 !ls_rain_cosp
-    flux_ls_snow = 0.0 !ls_snow_cosp
+    !flux_ls_rain = 0.0
+    flux_ls_snow = 0.0
     flux_ls_graupel = 0.0
-    flux_cc_rain = 0.0 !conv_rain_cosp
-    flux_cc_snow = 0.0 !conv_snow_cosp
+    !flux_cc_rain = 0.0
+    flux_cc_snow = 0.0
 
     ! change extinction to optical depth
     ! rho*k*dz = rho*k*dp/(rho*g) = k*dp/g
     ! check the sign, pos or neg?
-    do k=Nlevels+1,2,-1
-      dp = p_half_cosp(:,:,k) - p_half_cosp(:,:,k-1)
+    do k=Nlevels,1,-1
+      dp = p_half_cosp(:,:,k+1) - p_half_cosp(:,:,k)
       ! write(*,*) 'QL, k, phalf:', sum(p_half_cosp(:,:,k) )/size(p_half_cosp(:,:,k) ), &
       !                             sum(p_half_cosp(:,:,k-1) )/size(p_half_cosp(:,:,k-1) )
       ! write(*,*) 'QL dp', k, sum(dp)/size(dp), &

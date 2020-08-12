@@ -873,7 +873,7 @@ real :: delta_t
 real, dimension(size(ug,1), size(ug,2), size(ug,3)) :: tg_tmp, qg_tmp, RH,tg_interp, mc, &
                                                        dt_ug_conv, dt_vg_conv
 ! Simple cloud scheme variabilies to pass to radiation
-real, dimension(size(ug,1), size(ug,2), size(ug,3))    :: cf_rad, reff_rad, qcl_rad
+real, dimension(size(ug,1), size(ug,2), size(ug,3))    :: cf_rad, reff_rad, qcl_rad, reff_rad_in_meter
 
 real, intent(in),    dimension(:,:,:), optional :: mask
 integer, intent(in), dimension(:,:),   optional :: kbot
@@ -1053,10 +1053,11 @@ endif
 ! Using start of time step variables
 ! using soecific humidity NOT mixing ratios
 
- !Set to zero regarles of if clouds are used in radiation code
- cf_rad   = 0.
- reff_rad = 0.
- qcl_rad  = 1e-8
+!Set to zero regarles of if clouds are used in radiation code
+cf_rad   = 0.
+reff_rad = 0.
+qcl_rad  = 1e-8
+reff_rad_in_meter = 0.
 
 if(do_cloud_simple) then
     call cloud_simple(p_half(:,:,:,current),               &
@@ -1076,6 +1077,7 @@ if(do_cloud_simple) then
                       ! outs -
                       cf_rad(:,:,:), reff_rad(:,:,:),      &
                       qcl_rad(:,:,:) )
+    reff_rad_in_meter = reff_rad * 1.e-6 ! Simple cloud scheme outputs radii in microns. Change to meters.
 endif
 
 ! Begin the radiation calculation by computing downward fluxes.
@@ -1230,14 +1232,11 @@ cnv_cloud_extinction = 0.0
 #else
 if (do_socrates_radiation) then
     ! Socrates interface
-    if(do_cloud_simple) then
-       reff_rad = 1.e-6 * reff_rad ! Simple cloud scheme outputs radii in microns. Socrates expects it in metres.
-    endif
-    call run_socrates(Time, Time+Time_step, rad_lat, rad_lon, tg(:,:,:,previous),  &
-          grid_tracers(:,:,:,previous,nsphum), t_surf(:,:), p_full(:,:,:,current), &
-          p_half(:,:,:,current),z_full(:,:,:,current),z_half(:,:,:,current),       &
-          albedo, dt_tg(:,:,:), net_surf_sw_down(:,:), surf_lw_down(:,:), delta_t, &
-          do_cloud_simple, cf_rad(:,:,:), reff_rad(:,:,:), qcl_rad(:,:,:),         &
+    call run_socrates(Time, Time+Time_step, rad_lat, rad_lon, tg(:,:,:,previous),                 &
+          grid_tracers(:,:,:,previous,nsphum), t_surf(:,:), p_full(:,:,:,current),                &
+          p_half(:,:,:,current),z_full(:,:,:,current),z_half(:,:,:,current),                      &
+          albedo, dt_tg(:,:,:), net_surf_sw_down(:,:), surf_lw_down(:,:), delta_t,                &
+          do_cloud_simple, cf_rad(:,:,:), reff_rad_in_meter(:,:,:), qcl_rad(:,:,:),               &
           cloud_absorptivity(:,:,:), ls_cloud_absorptivity(:,:,:), cnv_cloud_absorptivity(:,:,:), &
           cloud_extinction(:,:,:),   ls_cloud_extinction(:,:,:),   cnv_cloud_extinction(:,:,:) )
 endif
@@ -1251,11 +1250,12 @@ endif
 #else
   if (do_cloud_simple .and. do_cosp) then
     ! Check input parameters again!!!
-    call fms_run_cosp(Time, Time+Time_step, is, ie, js, je, rad_lat, rad_lon, p_full(:,:,:,current), &
-            p_half(:,:,:,current), z_full(:,:,:,current), z_half(:,:,:,current), tg(:,:,:,previous), &
-            grid_tracers(:,:,:,previous,nsphum), RH(:,:,:), cf_rad(:,:,:), reff_rad(:,:,:),          &
-            qcl_rad(:,:,:), t_surf(:,:), land_ones(:,:), u_surf(:,:), v_surf(:,:), z_surf(:,:),      &
-            ls_cloud_absorptivity(:,:,:), cnv_cloud_absorptivity(:,:,:),                             &
+    call fms_run_cosp(Time, Time+Time_step, is, ie, js, je, rad_lat, rad_lon, p_full(:,:,:,current),  &
+            p_half(:,:,:,current), z_full(:,:,:,current), z_half(:,:,:,current), tg(:,:,:,previous),  &
+            grid_tracers(:,:,:,previous,nsphum), RH(:,:,:), cf_rad(:,:,:), reff_rad_in_meter(:,:,:),  &
+            qcl_rad(:,:,:), t_surf(:,:), land_ones(:,:), u_surf(:,:), v_surf(:,:), z_surf(:,:),       &
+            cond_dt_qg(:,:,:), conv_dt_qg(:,:,:),                                                     &
+            ls_cloud_absorptivity(:,:,:), cnv_cloud_absorptivity(:,:,:),                              &
             ls_cloud_extinction(:,:,:),   cnv_cloud_extinction(:,:,:) )
   endif
 #endif
