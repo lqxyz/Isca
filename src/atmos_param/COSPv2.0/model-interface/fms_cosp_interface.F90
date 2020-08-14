@@ -243,7 +243,6 @@ module fms_cosp_interface_mod
     ! Initialize the distributional parameters for hydrometeors in radar simulator
     call hydro_class_init(lsingle, ldouble, sd)
 
-    !write(*,*) 'QL: before call cosp init...'
     ! Initialize COSP simulator
     !  SUBROUTINE COSP_INIT(Lisccp, Lmodis, Lmisr, Lcloudsat, Lcalipso, LgrLidar532,
     !      Latlid, Lparasol, Lrttov,     &
@@ -256,7 +255,6 @@ module fms_cosp_interface_mod
         cloudsat_radar_freq, cloudsat_k2, cloudsat_use_gas_abs,                         &
         cloudsat_do_ray, isccp_topheight, isccp_topheight_direction, surface_radar,     &
         rcfg_cloudsat, use_vgrid, csat_vgrid, Nlvgrid, Nlevels, cloudsat_micro_scheme)
-    !write(*,*) 'QL: after call cosp init...'
 
     !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     ! Construct output derived type.
@@ -384,7 +382,6 @@ module fms_cosp_interface_mod
 
     mr_ozone = reshape(fms_mmr_ozone, (/si*sj, sk/))
     mr_co2 = sum(fms_mmr_co2)/(si*sj*sk)
-    !write(*,*) 'QL, mr_co2', mr_co2
 
     ! fms_hydrometeor_Reff(nlat, nlon, nlev, N_HYDRO)
     Reff = reshape(fms_hydrometeor_Reff,  (/si*sj, sk, N_HYDRO/))
@@ -403,10 +400,8 @@ module fms_cosp_interface_mod
     !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     nChunks = nPoints/nPoints_it+1
     if (nPoints .eq. nPoints_it) nChunks = 1
-    !write(*,*) 'QL, nChunks, nPoints', nChunks, nPoints
 
     do iChunk=1,nChunks
-      !write(*,*) 'QL, iChunk', iChunk
       !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
       ! Determine indices for "chunking" (again, if necessary)
       !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -463,17 +458,6 @@ module fms_cosp_interface_mod
       cospstateIN%o3          = mr_ozone(start_idx:end_idx,1:Nlevels) ! kg/kg
       cospstateIN%co2         = mr_co2                                ! kg/kg
 
-      ! write(*,*) 'QL init IN test level order, 1:n, p:',  cospstateIN%pfull(2,1:Nlevels)
-      ! write(*,*) 'QL init IN test level order, n:1:-1, p:',  cospstateIN%pfull(2,Nlevels:1:-1)
-      ! write(*,*) 'QL init IN test level order, 1:n, T:',  cospstateIN%at(2,1:Nlevels)
-      ! write(*,*) 'QL init IN test level order, n:1:-1, T:',  cospstateIN%at(2,Nlevels:1:-1)
-      ! write(*,*) 'ph=', ph(2,1:Nlevels+1)
-      ! write(*,*) 'QL init IN test level order, p_half:', cospstateIN%phalf(2,1:Nlevels+1)
-      ! write(*,*) 'QL init IN test level order, zlev:',  cospstateIN%hgt_matrix(2,1:Nlevels)
-      ! write(*,*) 'QL zlev_half(2,1:Nlevels+1)', zlev_half(2,1:Nlevels+1)
-      ! write(*,*) 'QL init IN test level order, zlev_half:', cospstateIN%hgt_matrix_half(2,1:Nlevels+1)
-
-      !write(*,*) 'QL: before call subsample_and_optics...'
       !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
       ! Generate subcolumns and compute optical inputs.
       !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -502,13 +486,10 @@ module fms_cosp_interface_mod
           dem_c(start_idx:end_idx,:),dem_s(start_idx:end_idx,:),         &
           cospstateIN,cospIN)
 
-      !write(*,*) 'QL: after call subsample_and_optics...'
-      !write(*,*) 'QL: before call COSP_SIMULATOR...'
       !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
       ! Call COSP
       !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
       cosp_status = COSP_SIMULATOR(cospIN, cospstateIN, cospOUT, start_idx, end_idx, .false.)
-      !write(*,*) 'QL: after call COSP_SIMULATOR...'
       do ij=1,size(cosp_status,1)
         if (cosp_status(ij) .ne. '') print*,trim(cosp_status(ij))
       end do
@@ -564,8 +545,6 @@ module fms_cosp_interface_mod
     type(time_type) :: Time_loc
     integer :: k
 
-    !write (*,*) 'QL, go into run_cosp now'
-
     ! check if we really want to recompute COSP
     ! alarm
     call get_time(Time,seconds,days)
@@ -580,9 +559,7 @@ module fms_cosp_interface_mod
       !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
       ! Output
       !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-      !if (js==1) write(*,*) 'QL else-clause, before output, dt_last', is, ie, js, je, dt_last, r_total_seconds
       call cosp_output_fields(Time_diag, size(temp_in,1), size(temp_in,2), Ncolumns, Nlevels, geomode, cospOUT)
-      !if (js==1) write(*,*) 'QL  else-clause, after output', dt_last, r_total_seconds
 
       return !not time yet
     end if
@@ -672,8 +649,6 @@ module fms_cosp_interface_mod
       endif
     endif
 
-    !write(*,*) 'QL: after interpolate co2'
-
     ! cast into COSP wp format
     rad_lat_cosp = real(rad_lat, kind(wp))
     rad_lon_cosp = real(rad_lon, kind(wp))
@@ -730,16 +705,10 @@ module fms_cosp_interface_mod
     ! check the sign, pos or neg?
     do k=Nlevels,1,-1
       dp = p_half_cosp(:,:,k+1) - p_half_cosp(:,:,k)
-      ! write(*,*) 'QL, k, phalf:', sum(p_half_cosp(:,:,k) )/size(p_half_cosp(:,:,k) ), &
-      !                             sum(p_half_cosp(:,:,k-1) )/size(p_half_cosp(:,:,k-1) )
-      ! write(*,*) 'QL dp', k, sum(dp)/size(dp), &
-      !     sum(ls_cloud_extinction_cosp(:,:,k))/size(ls_cloud_extinction_cosp(:,:,k))
       ls_cloud_tau_cosp(:,:,k) = ls_cloud_extinction_cosp(:,:,k) * dp / grav
       cnv_cloud_tau_cosp(:,:,k) = cnv_cloud_extinction_cosp(:,:,k) * dp / grav
       where ( ls_cloud_tau_cosp(:,:,k) < 0)  ls_cloud_tau_cosp(:,:,k) = 0.0
       where (cnv_cloud_tau_cosp(:,:,k) < 0) cnv_cloud_tau_cosp(:,:,k) = 0.0
-      ! write(*,*) 'QL ls tau', k, sum(ls_cloud_tau_cosp(:,:,k))/size(ls_cloud_tau_cosp(:,:,k))
-      ! write(*,*) 'QL cnv tau', k, sum(cnv_cloud_tau_cosp(:,:,k))/size(cnv_cloud_tau_cosp(:,:,k))
     enddo
 
     dtau_strat = ls_cloud_tau_cosp
@@ -755,7 +724,6 @@ module fms_cosp_interface_mod
 
     sfc_lw_emissivity = 1.0
 
-    !write(*,*) 'QL: before call cosp interface'
     call fms_cosp_interface(rad_lat_cosp, rad_lon_cosp, &
               p_full_cosp, p_half_cosp, z_full_cosp, z_half_cosp, temp_cosp, &
               q_cosp, rh_cosp, tot_cld_amt, conv_cld_amt, &
@@ -766,14 +734,11 @@ module fms_cosp_interface_mod
               dlw_emissivity_conv, ozone_cosp, co2_cosp, hydrometeor_Reff, &
               t_surf_cosp, landmask_cosp, u_wind_cosp, v_wind_cosp, sunlit_cosp, &
               z_surf_cosp, sfc_lw_emissivity)
-    !write(*,*) 'QL: after call cosp interface'
 
     !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     ! Output
     !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    !if (js==1) write(*,*) 'QL before output, dt_last', is, ie, js, je, dt_last, r_total_seconds
     call cosp_output_fields(Time_diag, size(temp_in,1), size(temp_in,2), Ncolumns, Nlevels, geomode, cospOUT)
-    !if (js==1) write(*,*) 'QL after output', dt_last, r_total_seconds
 
   end subroutine fms_run_cosp
 
@@ -1102,8 +1067,6 @@ module fms_cosp_interface_mod
     !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     ! LIDAR Polarized optics
     !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    !write(*,*) 'QL before call  any(cospIN%tautot_calipso .lt. 0)',  any(cospIN%tautot_calipso .lt. 0)
-    !write(*,*) 'QL, Lcalipso=', Lcalipso
     if (Lcalipso) then
       call lidar_optics(nPoints, nColumns, nLevels, 4, lidar_ice_type, 532, .false.,     &
           mr_hydro(:,:,:,I_LSCLIQ),  mr_hydro(:,:,:,I_LSCICE), mr_hydro(:,:,:,I_CVCLIQ), &
@@ -1113,7 +1076,6 @@ module fms_cosp_interface_mod
           cospIN%betatot_calipso, cospIN%tau_mol_calipso, cospIN%tautot_calipso,         &
           cospIN%tautot_S_liq, cospIN%tautot_S_ice, cospIN%betatot_ice_calipso,          &
           cospIN%betatot_liq_calipso, cospIN%tautot_ice_calipso, cospIN%tautot_liq_calipso)
-      !write(*,*) 'QL after call  any(cospIN%tautot_calipso .lt. 0)', any(cospIN%tautot_calipso .lt. 0)
     endif
 
     if (LgrLidar532) then
