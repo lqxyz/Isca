@@ -217,11 +217,6 @@ module fms_cosp_interface_mod
       call interpolator_init(co2_interp, trim(co2_file_name)//'.nc', lonb, latb, data_out_of_bounds=(/ZERO/))
     endif
 
-    ! if (mod((size(lonb,1)-1)*(size(latb,1)-1), chunk_size) .ne. 0) then
-    !   call error_mesg( 'socrates_init', &
-    !     'chunk_size must equally divide number of points per processor, which it currently does not.', FATAL)
-    ! endif
-
     !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     ! Initialize COSP
     !*This only needs to be done the first time that COSP is called.*
@@ -244,11 +239,6 @@ module fms_cosp_interface_mod
     call hydro_class_init(lsingle, ldouble, sd)
 
     ! Initialize COSP simulator
-    !  SUBROUTINE COSP_INIT(Lisccp, Lmodis, Lmisr, Lcloudsat, Lcalipso, LgrLidar532,
-    !      Latlid, Lparasol, Lrttov,     &
-    !     cloudsat_radar_freq, cloudsat_k2, cloudsat_use_gas_abs, cloudsat_do_ray,   &
-    !     isccp_top_height, isccp_top_height_direction, surface_radar, rcfg, lusevgrid, &
-    !     luseCSATvgrid, Nvgrid, Nlevels, cloudsat_micro_scheme)
     ! from cosp_input_nml except 'rcfg_cloudsat'
     call cosp_init(Lisccp, Lmodis, Lmisr, Lcloudsat, Lcalipso, LgrLidar532, Latlid,     &
         Lparasol, Lrttov,                                                               &
@@ -452,8 +442,8 @@ module fms_cosp_interface_mod
       cospstateIN%phalf(:,2:Nlevels+1) = ph(start_idx:end_idx,2:Nlevels+1) ! Pa
       cospstateIN%phalf(:,1)  = 0._wp
       ! Height at interface (nlevels+1). Set lowermost interface to 0.
-      cospstateIN%hgt_matrix_half(:,1:Nlevels) = zlev_half(start_idx:end_idx,2:Nlevels+1) !m not km, right?
-      cospstateIN%hgt_matrix_half(:,Nlevels+1) = 0._wp
+      cospstateIN%hgt_matrix_half(:,1:Nlevels+1) = zlev_half(start_idx:end_idx,1:Nlevels+1) !m
+      !cospstateIN%hgt_matrix_half(:,Nlevels+1) = 0._wp
       ! Update o3 and co2
       cospstateIN%o3          = mr_ozone(start_idx:end_idx,1:Nlevels) ! kg/kg
       cospstateIN%co2         = mr_co2                                ! kg/kg
