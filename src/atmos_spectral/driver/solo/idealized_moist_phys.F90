@@ -6,7 +6,8 @@ module idealized_moist_phys_mod
   use fms_mod, only: open_namelist_file, close_file
 #endif
 
-use fms_mod, only: write_version_number, file_exist, close_file, stdlog, error_mesg, NOTE, FATAL, read_data, field_size, uppercase, mpp_pe
+use fms_mod, only: write_version_number, file_exist, close_file, stdlog, error_mesg, NOTE, &
+                   FATAL, WARNING, read_data, field_size, uppercase, mpp_pe, check_nml_error
 
 use           constants_mod, only: grav, rdgas, rvgas, cp_air, PSTD_MKS, dens_h2o !mj cp_air needed for rrtmg !s pstd_mks needed for pref calculation
 
@@ -102,7 +103,7 @@ integer, parameter :: UNSET = -1,                & !! are NONE, SIMPLE_BETTS_MIL
                       FULL_BETTS_MILLER_CONV = 2,&
                       DRY_CONV = 3,              &
                       RAS_CONV = 4
-                      
+
 integer :: r_conv_scheme = UNSET  ! the selected convection scheme
 
 logical :: lwet_convection = .false.
@@ -137,25 +138,25 @@ character(len=256) :: land_file_name  = 'INPUT/land.nc'
 character(len=256) :: land_field_name = 'land_mask'
 
 ! RG Add bucket
-logical :: bucket = .false. 
+logical :: bucket = .false.
 integer :: future
 real :: init_bucket_depth = 1000. ! default large value
-real :: init_bucket_depth_land = 20. 
+real :: init_bucket_depth_land = 20.
 real :: max_bucket_depth_land = 0.15 ! default from Manabe 1969
 real :: robert_bucket = 0.04   ! default robert coefficient for bucket depth LJJ
 real :: raw_bucket = 0.53       ! default raw coefficient for bucket depth LJJ
 ! end RG Add bucket
 
 namelist / idealized_moist_phys_nml / turb, lwet_convection, do_bm, do_ras, roughness_heat,  &
-                                      do_cloud_simple,                                       &
+                                      do_cloud_simple,                               &
                                       two_stream_gray, do_rrtm_radiation, do_damping,&
                                       mixed_layer_bc, do_simple,                     &
                                       roughness_moist, roughness_mom, do_virtual,    &
-                                      land_option, land_file_name, land_field_name,   & !s options for idealised land
-                                      land_roughness_prefactor,               &
-                                      gp_surface, convection_scheme,          &
-                                      bucket, init_bucket_depth, init_bucket_depth_land, & !RG Add bucket 
-                                      max_bucket_depth_land, robert_bucket, raw_bucket, simple_surface, &
+                                      land_option, land_file_name, land_field_name,  & !s options for idealised land
+                                      land_roughness_prefactor,                      &
+                                      gp_surface, convection_scheme,                 &
+                                      bucket, init_bucket_depth, init_bucket_depth_land, & !RG Add bucket
+                                      max_bucket_depth_land, robert_bucket, raw_bucket, &
                                       do_socrates_radiation
 
 integer, parameter :: num_time_levels = 2 !RG Add bucket - number of time levels added to allow timestepping in this module
@@ -200,7 +201,15 @@ real, allocatable, dimension(:,:)   ::                                        &
      rough,                &   ! roughness for vert_turb_driver
      albedo,               &   !s albedo now defined in mixed_layer_init
      coszen,               &   !s make sure this is ready for assignment in run_rrtmg
-     pbltop                    !s Used as an input to damping_driver, outputted from vert_turb_driver
+     pbltop,               &   !s Used as an input to damping_driver, outputted from vert_turb_driver
+     ex_del_m,             &   !mp586 for 10m winds and 2m temp
+     ex_del_h,             &   !mp586 for 10m winds and 2m temp
+     ex_del_q,             &   !mp586 for 10m winds and 2m temp
+     temp_2m,              &   !mp586 for 10m winds and 2m temp
+     u_10m,                &   !mp586 for 10m winds and 2m temp
+     v_10m,                &   !mp586 for 10m winds and 2m temp
+     q_2m,                 &   ! Add 2m specific humidity
+     rh_2m                     ! Add 2m relative humidity
 
 real, allocatable, dimension(:,:,:) ::                                        &
      diff_m,               &   ! momentum diffusion coeff.
@@ -226,15 +235,20 @@ logical, allocatable, dimension(:,:) ::                                       &
 real, allocatable, dimension(:,:) ::                                          &
      land_ones                 ! land points (all zeros)
 
-real, allocatable, dimension(:,:) ::                                          &
+integer, allocatable, dimension(:,:) ::                                       &
      klzbs,                &   ! stored level of zero buoyancy values
+     klcls                     ! stored lifting condensation level values
+
+real, allocatable, dimension(:,:) ::                                          &
      cape,                 &   ! convectively available potential energy
      cin,                  &   ! convective inhibition (this and the above are before the adjustment)
      invtau_q_relaxation,  &   ! temperature relaxation time scale
      invtau_t_relaxation,  &   ! humidity relaxation time scale
      rain,                 &   ! Can be resolved or  parameterised
      snow,                 &   !
-     precip                    ! cumulus rain  + resolved rain  + resolved snow
+     precip,               &   ! cumulus rain  + resolved rain  + resolved snow
+     convective_rain           ! save the result for convective rain
+
 
 real, allocatable, dimension(:,:,:) :: &
      t_ref,          &   ! relaxation temperature for bettsmiller scheme
@@ -264,8 +278,14 @@ integer ::           &
      id_diss_heat_ray,&  ! Heat dissipated by rayleigh bottom drag if gp_surface=.True.
      id_z_tg,        &   ! Relative humidity
      id_cape,        &
-     id_cin, &
-     id_t_surf ! surface temperature from simple_surface 
+     id_cin,         & 
+     id_flux_u,      & ! surface flux of zonal mom.
+     id_flux_v,      & ! surface flux of meridional mom.
+     id_temp_2m,     & !mp586 for 10m winds and 2m temp
+     id_u_10m,       & !mp586 for 10m winds and 2m temp
+     id_v_10m,       & !mp586 for 10m winds and 2m temp
+     id_q_2m,        & ! Add 2m humidity
+     id_rh_2m          ! Add 2m relative humidity
 
 integer, allocatable, dimension(:,:) :: convflag ! indicates which qe convection subroutines are used
 real,    allocatable, dimension(:,:) :: rad_lat, rad_lon
@@ -273,11 +293,11 @@ real,    allocatable, dimension(:) :: pref, p_half_1d, ln_p_half_1d, p_full_1d,l
 real,    allocatable, dimension(:,:) :: capeflag !s Added for Betts Miller scheme (rather than the simplified Betts Miller scheme).
 
 type(surf_diff_type) :: Tri_surf ! used by gcm_vert_diff
-	
+
 !s initialise constants ready to be used in rh_calc	
 real :: d622 = 0.
 real :: d378 = 0.
-	
+
 logical :: used, doing_edt, doing_entrain, do_strat
 integer, dimension(4) :: axes
 integer :: is, ie, js, je, num_levels, nsphum, dt_integer
@@ -293,7 +313,7 @@ type(time_type), intent(in) :: Time, Time_step_in
 integer, intent(in) :: nhum
 real, intent(in), dimension(:,:) :: rad_lon_2d, rad_lat_2d, rad_lonb_2d, rad_latb_2d, t_surf_init
 
-integer :: io, nml_unit, stdlog_unit, seconds, days, id, jd, kd
+integer :: io, ierr, nml_unit, stdlog_unit, seconds, days, id, jd, kd
 real, dimension (size(rad_lonb_2d,1)-1, size(rad_latb_2d,2)-1) :: sgsmtn !s added for damping_driver
 
 !s added for land reading
@@ -317,11 +337,16 @@ call write_version_number(version, tagname)
 
 #ifdef INTERNAL_FILE_NML
    read (input_nml_file, nml=idealized_moist_phys_nml, iostat=io)
+   ierr = check_nml_error(io, 'idealized_moist_phys_nml')
 #else
    if ( file_exist('input.nml') ) then
       nml_unit = open_namelist_file()
-      read (nml_unit, idealized_moist_phys_nml, iostat=io)
-      call close_file(nml_unit)
+      ierr = 1
+      do while (ierr /= 0)
+        read(nml_unit, idealized_moist_phys_nml, iostat=io, end=10)
+        ierr = check_nml_error(io, 'idealized_moist_phys_nml')
+      enddo
+10    call close_file(nml_unit)
    endif
 #endif
 stdlog_unit = stdlog()
@@ -372,7 +397,7 @@ else if(uppercase(trim(convection_scheme)) == 'DRY') then
   call error_mesg('idealized_moist_phys','Using dry convection scheme.', NOTE)
   lwet_convection = .false.
   do_bm           = .false.
-  do_ras          = .false.  
+  do_ras          = .false.
 
 else if(uppercase(trim(convection_scheme)) == 'UNSET') then
   call error_mesg('idealized_moist_phys','determining convection scheme from flags', NOTE)
@@ -387,7 +412,7 @@ else if(uppercase(trim(convection_scheme)) == 'UNSET') then
   if (do_ras) then
     r_conv_scheme = RAS_CONV
     call error_mesg('idealized_moist_phys','Using  relaxed Arakawa Schubert convection scheme.', NOTE)
-  end if    
+  end if
 else
   call error_mesg('idealized_moist_phys','"'//trim(convection_scheme)//'"'//' is not a valid convection scheme.'// &
       ' Choices are NONE, SIMPLE_BETTS, FULL_BETTS_MILLER, RAS, DRY', FATAL)
@@ -395,12 +420,12 @@ endif
 
 if(lwet_convection .and. do_bm) &
   call error_mesg('idealized_moist_phys','lwet_convection and do_bm cannot both be .true.',FATAL)
-  
+
 if(lwet_convection .and. do_ras) &
-  call error_mesg('idealized_moist_phys','lwet_convection and do_ras cannot both be .true.',FATAL)  
+  call error_mesg('idealized_moist_phys','lwet_convection and do_ras cannot both be .true.',FATAL)
 
 if(do_bm .and. do_ras) &
-  call error_mesg('idealized_moist_phys','do_bm and do_ras cannot both be .true.',FATAL)  
+  call error_mesg('idealized_moist_phys','do_bm and do_ras cannot both be .true.',FATAL)
 
 nsphum = nhum
 Time_step = Time_step_in
@@ -449,6 +474,14 @@ allocate(dhdt_atm    (is:ie, js:je))
 allocate(dedq_atm    (is:ie, js:je))
 allocate(dtaudv_atm  (is:ie, js:je))
 allocate(dtaudu_atm  (is:ie, js:je))
+allocate(ex_del_m    (is:ie, js:je)) !mp586 added for 10m wind and 2m temp
+allocate(ex_del_h    (is:ie, js:je)) !mp586 added for 10m wind and 2m temp
+allocate(ex_del_q    (is:ie, js:je)) !mp586 added for 10m wind and 2m temp
+allocate(temp_2m     (is:ie, js:je)) !mp586 added for 10m wind and 2m temp
+allocate(u_10m       (is:ie, js:je)) !mp586 added for 10m wind and 2m temp
+allocate(v_10m       (is:ie, js:je)) !mp586 added for 10m wind and 2m temp
+allocate(q_2m        (is:ie, js:je)) ! Add 2m specific humidity
+allocate(rh_2m       (is:ie, js:je)) ! Add 2m relative humidity
 allocate(land        (is:ie, js:je)); land = .false.
 allocate(land_ones   (is:ie, js:je)); land_ones = 0.0
 allocate(avail       (is:ie, js:je)); avail = .true.
@@ -474,6 +507,7 @@ allocate(cond_dt_qg  (is:ie, js:je, num_levels))
 
 allocate(coldT        (is:ie, js:je)); coldT = .false.
 allocate(klzbs        (is:ie, js:je))
+allocate(klcls        (is:ie, js:je))
 allocate(cape         (is:ie, js:je))
 allocate(cin          (is:ie, js:je))
 allocate(invtau_q_relaxation  (is:ie, js:je))
@@ -481,6 +515,7 @@ allocate(invtau_t_relaxation  (is:ie, js:je))
 allocate(rain         (is:ie, js:je)); rain = 0.0
 allocate(snow         (is:ie, js:je)); snow = 0.0
 allocate(precip       (is:ie, js:je)); precip = 0.0
+allocate(convective_rain (is:ie, js:je)); convective_rain = 0.0
 allocate(convflag     (is:ie, js:je))
 allocate(convect      (is:ie, js:je)); convect = .false.
 
@@ -579,7 +614,7 @@ if(mixed_layer_bc) then
   t_surf = t_surf_init + 1.0
 
   call mixed_layer_init(is, ie, js, je, num_levels, t_surf, bucket_depth, get_axis_id(), Time, albedo, rad_lonb_2d(:,:), rad_latb_2d(:,:), land, bucket) ! t_surf is intent(inout) !s albedo distribution set here.
-  
+
 elseif(gp_surface) then
   albedo=0.0
   call error_mesg('idealized_moist_phys','Because gp_surface=.True., setting albedo=0.0', NOTE)
@@ -613,6 +648,10 @@ id_cape = register_diag_field(mod_name, 'cape',          &
      axes(1:2), Time, 'Convective Available Potential Energy','J/kg')
 id_cin = register_diag_field(mod_name, 'cin',          &
      axes(1:2), Time, 'Convective Inhibition','J/kg')
+id_flux_u = register_diag_field(mod_name, 'flux_u', &
+     axes(1:2), Time, 'Zonal momentum flux', 'Pa')
+id_flux_v = register_diag_field(mod_name, 'flux_v', &
+     axes(1:2), Time, 'Meridional momentum flux', 'Pa')
 
 if(bucket) then
   id_bucket_depth = register_diag_field(mod_name, 'bucket_depth',            &         ! RG Add bucket
@@ -624,6 +663,24 @@ if(bucket) then
   id_bucket_depth_lh = register_diag_field(mod_name, 'bucket_depth_lh',      &         ! RG Add bucket
        axes(1:2), Time, 'Tendency of bucket depth induced by LH', 'm/s')
 endif
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!! added by mp586 for 10m winds and 2m temperature add mo_profile()!!!!!!!!
+
+id_temp_2m = register_diag_field(mod_name, 'temp_2m',            &         !mp586 add 2m temp
+     axes(1:2), Time, 'Air temperature 2m above surface', 'K')
+id_u_10m = register_diag_field(mod_name, 'u_10m',                &         !mp586 add 10m wind (u)
+     axes(1:2), Time, 'Zonal wind 10m above surface', 'm/s')
+id_v_10m = register_diag_field(mod_name, 'v_10m',                &         !mp586 add 10m wind (v)
+     axes(1:2), Time, 'Meridional wind 10m above surface', 'm/s')
+
+!!!!!!!!!!!! end of mp586 additions !!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+id_q_2m = register_diag_field(mod_name, 'sphum_2m',                  &
+     axes(1:2), Time, 'Specific humidity 2m above surface', 'kg/kg')       !Add 2m specific humidity
+id_rh_2m = register_diag_field(mod_name, 'rh_2m',                &
+     axes(1:2), Time, 'Relative humidity 2m above surface', 'percent')     !Add 2m relative humidity
 
 select case(r_conv_scheme)
 
@@ -641,7 +698,7 @@ case(RAS_CONV)
         !run without startiform cloud scheme
 
        !---------------------------------------------------------------------
-       !    retrieve the number of registered tracers in order to determine 
+       !    retrieve the number of registered tracers in order to determine
        !    which tracers are to be convectively transported.
        !---------------------------------------------------------------------
 
@@ -653,7 +710,7 @@ case(RAS_CONV)
        do_strat = .false.
 
        !Commented code not used such that tracers are not advected by RAS. Could implement in future.
-       
+
        ! do n=1, num_tracers
        !   if (query_method ('convection', MODEL_ATMOS, n, scheme)) then
        !    num_ras_tracers = num_ras_tracers + 1
@@ -669,13 +726,13 @@ case(RAS_CONV)
 
        !----------------------------------------------------------------------
        !    for each tracer, determine if it is to be transported by convect-
-       !    ion, and the convection schemes that are to transport it. set a 
+       !    ion, and the convection schemes that are to transport it. set a
        !    logical flag to .true. for each tracer that is to be transported by
        !    each scheme and increment the count of tracers to be transported
        !    by that scheme.
        !----------------------------------------------------------------------
 
-        call ras_init (do_strat, axes,Time,tracers_in_ras) 
+        call ras_init (do_strat, axes,Time,tracers_in_ras)
 
 end select
 
@@ -728,9 +785,9 @@ if(turb) then
    id_diff_dt_vg = register_diag_field(mod_name, 'dt_vg_diffusion',        &
         axes(1:3), Time, 'meridional wind tendency from diffusion','m/s^2')
    id_diff_dt_tg = register_diag_field(mod_name, 'dt_tg_diffusion',        &
-        axes(1:3), Time, 'temperature diffusion tendency','T/s')
+        axes(1:3), Time, 'temperature diffusion tendency','K/s')
    id_diff_dt_qg = register_diag_field(mod_name, 'dt_qg_diffusion',        &
-        axes(1:3), Time, 'moisture diffusion tendency','T/s')
+        axes(1:3), Time, 'moisture diffusion tendency','kg/kg/s')
 endif
 
 id_rh = register_diag_field ( mod_name, 'rh', &
@@ -738,11 +795,12 @@ id_rh = register_diag_field ( mod_name, 'rh', &
 
 end subroutine idealized_moist_phys_init
 !=================================================================================================================================
-subroutine idealized_moist_phys(Time, p_half, p_full, z_half, z_full, ug, vg, tg, grid_tracers, &
+subroutine idealized_moist_phys(Time, p_half, p_full, z_half, z_full, ug, vg, psg, wg_full, tg, grid_tracers, &
                                 previous, current, dt_ug, dt_vg, dt_tg, dt_tracers, mask, kbot)
 
 type(time_type),            intent(in)    :: Time
 real, dimension(:,:,:,:),   intent(in)    :: p_half, p_full, z_half, z_full, ug, vg, tg
+real, dimension(:,:,:),     intent(in)    :: psg, wg_full
 real, dimension(:,:,:,:,:), intent(in)    :: grid_tracers
 integer,                    intent(in)    :: previous, current
 real, dimension(:,:,:),     intent(inout) :: dt_ug, dt_vg, dt_tg
@@ -752,17 +810,13 @@ real :: delta_t
 real, dimension(size(ug,1), size(ug,2), size(ug,3)) :: tg_tmp, qg_tmp, RH,tg_interp, mc, dt_ug_conv, dt_vg_conv
 
 ! Simple cloud scheme variabilies to pass to radiation
-real, dimension(size(ug,1), size(ug,2), size(ug,3))    :: cf_rad, reff_rad, qcl_rad  
+real, dimension(size(ug,1), size(ug,2), size(ug,3))    :: cf_rad, reff_rad, qcl_rad
 
 real, intent(in) , dimension(:,:,:), optional :: mask
 integer, intent(in) , dimension(:,:),   optional :: kbot
 
 real, dimension(1,1,1):: tracer, tracertnd
 integer :: nql, nqi, nqa   ! tracer indices for stratiform clouds
-
-!integer :: k
-!real, dimension(size(ug,1), size(ug,2), size(ug,3)) :: dt_tg_old
-!dt_tg_old = dt_tg
 
 if(current == previous) then
    delta_t = dt_real
@@ -776,6 +830,7 @@ if (bucket) then
 endif
 
 rain = 0.0; snow = 0.0; precip = 0.0
+convective_rain = 0.0
 
 select case(r_conv_scheme)
 
@@ -789,8 +844,8 @@ case(SIMPLE_BETTS_CONV)
                                 q_ref,                        convflag,      &
                                 klzbs,                            cape,      &
                                   cin,             invtau_q_relaxation,      &
-                  invtau_t_relaxation,                           t_ref)
-
+                  invtau_t_relaxation,                           t_ref,      &
+                                klcls)
    tg_tmp = conv_dt_tg + tg(:,:,:,previous)
    qg_tmp = conv_dt_qg + grid_tracers(:,:,:,previous,nsphum)
 !  note the delta's are returned rather than the time derivatives
@@ -818,7 +873,7 @@ case(FULL_BETTS_MILLER_CONV)
                                   klzbs,                         cape,       &
                                     cin,                        t_ref,       &
                     invtau_t_relaxation,          invtau_q_relaxation,       &
-                               capeflag)
+                               capeflag,                        klcls)
 
    tg_tmp = conv_dt_tg + tg(:,:,:,previous)
    qg_tmp = conv_dt_qg + grid_tracers(:,:,:,previous,nsphum)
@@ -839,7 +894,7 @@ case(FULL_BETTS_MILLER_CONV)
 case(DRY_CONV)
     call dry_convection(Time, tg(:, :, :, previous),                         &
                         p_full(:,:,:,previous), p_half(:,:,:,previous),      &
-                        conv_dt_tg, cape, cin)
+                        conv_dt_tg, cape, cin, klzbs, klcls)
 
     tg_tmp = conv_dt_tg*delta_t + tg(:,:,:,previous)
     qg_tmp = grid_tracers(:,:,:,previous,nsphum)
@@ -850,19 +905,20 @@ case(DRY_CONV)
 
 case(RAS_CONV)
 
-    call ras   (is,   js,     Time,                                                  &  
+    call ras   (is,   js,     Time,                                                  &
                 tg(:,:,:,previous),   grid_tracers(:,:,:,previous,nsphum),           &
                 ug(:,:,:,previous),  vg(:,:,:,previous),    p_full(:,:,:,previous),  &
                 p_half(:,:,:,previous), z_half(:,:,:,previous), coldT,  delta_t,     &
                 conv_dt_tg,   conv_dt_qg, dt_ug_conv,  dt_vg_conv,                   &
-                rain, snow,   do_strat,                                              &                                              
-                !OPTIONAL 
+                rain, snow,   do_strat,                                              &
+                klzbs,  klcls,                                                       &
+                !OPTIONAL
                 mask,  kbot,                                                         &
                 !OPTIONAL OUT
                 mc,   tracer(:,:,:), tracer(:,:,:),                          &
                tracer(:,:,:),  tracertnd(:,:,:),                             &
                tracertnd(:,:,:), tracertnd(:,:,:))
-                
+
 
       !update tendencies - dT and dq are done after cases
       tg_tmp = tg(:,:,:,previous) + conv_dt_tg
@@ -889,6 +945,8 @@ end select
 ! Add the T and q tendencies due to convection to the timestep
 dt_tg = dt_tg + conv_dt_tg
 dt_tracers(:,:,:,nsphum) = dt_tracers(:,:,:,nsphum) + conv_dt_qg
+
+convective_rain = precip
 
 ! Perform large scale convection
 if ((r_conv_scheme .ne. DRY_CONV).and.(r_conv_scheme .ne. NO_CONV)) then
@@ -925,17 +983,26 @@ endif
  !Set to zero regarles of if clouds are used in radiation code
  cf_rad   = 0.
  reff_rad = 0.
- qcl_rad  = 0.
+ qcl_rad  = 1e-8
 
 if(do_cloud_simple) then
-    call cloud_simple(p_half(:,:,:,current), p_full(:,:,:,current),  &
+    call cloud_simple(p_half(:,:,:,current),               &
+                      p_full(:,:,:,current),               &
                       Time,                                &
                       tg(:,:,:,previous),                  &
                       grid_tracers(:,:,:,previous,nsphum), &
-                      ! outs
-                      cf_rad(:,:,:), reff_rad(:,:,:),      &
-                      qcl_rad(:,:,:)                       & 
-                      )
+                      z_full(:,:,:,current),               &
+                      wg_full(:,:,:),                      &
+                      psg(:,:,current),                    &
+                      temp_2m(:,:),                        &
+                      q_2m(:,:),                           &
+                      rh_2m(:,:),                          &
+                      klcls(:,:),                          &
+                      .not. land(:,:),                     & ! ocean mask, True is for ocean
+                      ! ----- outs -----
+                      cf_rad(:,:,:),                       &
+                      reff_rad(:,:,:),                     &
+                      qcl_rad(:,:,:)                       )
 endif
 
 ! Begin the radiation calculation by computing downward fluxes.
@@ -963,8 +1030,8 @@ end if
 !!$  t_surf = surface_temperature(tg(:,:,:,previous), p_full(:,:,:,current), p_half(:,:,:,current))
 !end if
 
-if((.not.gp_surface).and.(.not.simple_surface)) then 
-call surface_flux(                                                          &
+if(.not.gp_surface) then 
+  call surface_flux(                                                        &
                   tg(:,:,num_levels,previous),                              &
  grid_tracers(:,:,num_levels,previous,nsphum),                              &
                   ug(:,:,num_levels,previous),                              &
@@ -1008,11 +1075,49 @@ call surface_flux(                                                          &
                                 dedq_atm(:,:),                              & ! is intent(out)
                               dtaudu_atm(:,:),                              & ! is intent(out)
                               dtaudv_atm(:,:),                              & ! is intent(out)
+                                ex_del_m(:,:),                              & ! mp586 for 10m winds and 2m temp
+                                ex_del_h(:,:),                              & ! mp586 for 10m winds and 2m temp
+                                ex_del_q(:,:),                              & ! mp586 for 10m winds and 2m temp
+                                 temp_2m(:,:),                              & ! mp586 for 10m winds and 2m temp
+                                   u_10m(:,:),                              & ! mp586 for 10m winds and 2m temp
+                                   v_10m(:,:),                              & ! mp586 for 10m winds and 2m temp
+                                    q_2m(:,:),                              & ! Add 2m humidity
+                                   rh_2m(:,:),                              & ! Add 2m relative humidty
                                       delta_t,                              &
                                     land(:,:),                              &
                                .not.land(:,:),                              &
                                    avail(:,:)  )
+
+  if(id_flux_u > 0) used = send_data(id_flux_u, flux_u, Time)
+  if(id_flux_v > 0) used = send_data(id_flux_v, flux_v, Time)
+
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  !!!!!!! added by mp586 for 10m winds and 2m temperature add mo_profile()!!!!!!!!
+
+  if(id_temp_2m > 0) used = send_data(id_temp_2m, temp_2m, Time)    ! mp586 add 2m temp
+  if(id_u_10m > 0) used = send_data(id_u_10m, u_10m, Time)          ! mp586 add 10m wind (u)
+  if(id_v_10m > 0) used = send_data(id_v_10m, v_10m, Time)          ! mp586 add 10m wind (v)
+
+
+  !!!!!!!!!!!! end of mp586 additions !!!!!!!!!!!!!!!!!!!!!!!
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+  if(id_q_2m > 0) used = send_data(id_q_2m, q_2m, Time)           ! Add 2m specific humidity
+  if(id_rh_2m > 0) used = send_data(id_rh_2m, rh_2m*1e2, Time)    ! Add 2m relative humidity
+
 endif
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!! added by mp586 for 10m winds and 2m temperature add mo_profile()!!!!!!!!
+
+if(id_temp_2m > 0) used = send_data(id_temp_2m, temp_2m, Time) ! mp586 add 2m temp
+if(id_u_10m > 0) used = send_data(id_u_10m, u_10m, Time)       ! mp586 add 10m wind (u)
+if(id_v_10m > 0) used = send_data(id_v_10m, v_10m, Time)       ! mp586 add 10m wind (v)
+
+!!!!!!!!!!!! end of mp586 additions !!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+if(id_q_2m > 0) used = send_data(id_q_2m, q_2m, Time)         ! Add 2m humidity
+if(id_rh_2m > 0) used = send_data(id_rh_2m, rh_2m*1e2, Time)  ! Add 2m humidity
 
 ! Now complete the radiation calculation by computing the upward and net fluxes.
 
@@ -1037,11 +1142,11 @@ end if
 #else
 if(do_rrtm_radiation) then
    !need t at half grid
-	tg_interp=tg(:,:,:,previous)
+   tg_interp=tg(:,:,:,previous)
    call interp_temp(z_full(:,:,:,current),z_half(:,:,:,current),tg_interp, Time)
    call run_rrtmg(is,js,Time,rad_lat(:,:),rad_lon(:,:),p_full(:,:,:,current),p_half(:,:,:,current),  &
                   albedo,grid_tracers(:,:,:,previous,nsphum),tg_interp,t_surf(:,:),dt_tg(:,:,:),     &
-                  coszen,net_surf_sw_down(:,:),surf_lw_down(:,:), cf_rad(:,:,:), reff_rad(:,:,:),   &     
+                  coszen,net_surf_sw_down(:,:),surf_lw_down(:,:), cf_rad(:,:,:), reff_rad(:,:,:),   &
                   do_cloud_simple )
 endif
 #endif
@@ -1052,16 +1157,13 @@ endif
     endif
 #else
 if (do_socrates_radiation) then
-       ! Socrates interface
-  
+    ! Socrates interface
     if(do_cloud_simple) then
        reff_rad = 1.e-6 * reff_rad ! Simple cloud scheme outputs radii in microns. Socrates expects it in metres.
     endif
-  
     call run_socrates(Time, Time+Time_step, rad_lat, rad_lon, tg(:,:,:,previous), grid_tracers(:,:,:,previous,nsphum), t_surf(:,:), p_full(:,:,:,current), &
-                      p_half(:,:,:,current),z_full(:,:,:,current),z_half(:,:,:,current), albedo, dt_tg(:,:,:), net_surf_sw_down(:,:), surf_lw_down(:,:), delta_t, do_cloud_simple, cf_rad(:,:,:), reff_rad(:,:,:),      &
-                      qcl_rad(:,:,:)   )
-
+                      p_half(:,:,:,current),z_full(:,:,:,current),z_half(:,:,:,current), albedo, dt_tg(:,:,:), net_surf_sw_down(:,:), surf_lw_down(:,:), delta_t, &
+                      do_cloud_simple, cf_rad(:,:,:), reff_rad(:,:,:), qcl_rad(:,:,:) )
 endif
 #endif
 
@@ -1072,7 +1174,7 @@ if(gp_surface) then
   call compute_rayleigh_bottom_drag( 1,                     ie-is+1, &
                                        1,                     je-js+1, &
                                      Time,                    delta_t, &
-                   rad_lat(:,:),         dt_ug(:,:,:      ), &
+                   		     rad_lat(:,:),         dt_ug(:,:,:      ), &
                         dt_vg(:,:,:     ),                             &
                        ug(:,:,:,previous),         vg(:,:,:,previous), &
                      p_half(:,:,:,previous),     p_full(:,:,:,previous), &
@@ -1166,9 +1268,11 @@ if(turb) then
 !
 ! update surface temperature
 !
-   if(mixed_layer_bc) then	
+   if(mixed_layer_bc) then
    call mixed_layer(                                                       &
                               Time, Time+Time_step,                        &
+                              js,                                          & 
+                              je,                                          &
                               t_surf(:,:),                                 & ! t_surf is intent(inout)
                               flux_t(:,:),                                 &
                               flux_q(:,:),                                 &
@@ -1200,8 +1304,8 @@ endif ! if(turb) then
    if(id_rh >0) used = send_data(id_rh, RH*100., Time)
 
 ! RG Add bucket
-! Timestepping for bucket. 
-! NB In tapios github, all physics is still in atmosphere.F90 and this leapfrogging is done there. 
+! Timestepping for bucket.
+! NB In tapios github, all physics is still in atmosphere.F90 and this leapfrogging is done there.
 !This part has been included here to avoid editing atmosphere.F90
 ! Therefore define a future variable locally, but do not feedback any changes to timestepping variables upstream, so as to avoid messing with the model's overall timestepping.
 ! Bucket diffusion has been cut for this version - could be incorporated later.
@@ -1216,7 +1320,7 @@ if(bucket) then
 
    ! bucket time tendency
    dt_bucket = depth_change_cond + depth_change_conv - depth_change_lh
-   !change in bucket depth in one leapfrog timestep [m]                                 
+   !change in bucket depth in one leapfrog timestep [m]
 
    ! use the raw filter in leapfrog time stepping
 
@@ -1228,7 +1332,7 @@ if(bucket) then
         *(bucket_depth(:,:,previous) - 2.0*bucket_depth(:,:,current) + bucket_depth(:,:,future)) * raw_bucket
    else
       bucket_depth(:,:,current) = bucket_depth(:,:,current ) + robert_bucket &
-        *(bucket_depth(:,:,previous) - 2.0*bucket_depth(:,:,current)) * raw_bucket 
+        *(bucket_depth(:,:,previous) - 2.0*bucket_depth(:,:,current)) * raw_bucket
       bucket_depth(:,:,future ) = bucket_depth(:,:,previous) + dt_bucket
       bucket_depth(:,:,current) = bucket_depth(:,:,current) + robert_bucket * bucket_depth(:,:,future) * raw_bucket
    endif
