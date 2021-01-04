@@ -186,11 +186,12 @@ subroutine column_grid_init(num_lon_in, num_lat_in, longitude_origin, south_to_n
     if (.not. south_to_north_local) then
       lat_boundaries_global(:) = -lat_boundaries_global(:)
     end if
-    del_lon = 2 * pi / num_lon
-    do i=1,num_lon+1
-      lon_boundaries_global(i) = longitude_origin_local + (i-1.5)*del_lon
-    end do
   endif
+
+  del_lon = 2 * pi / num_lon
+  do i=1,num_lon+1
+    lon_boundaries_global(i) = longitude_origin_local + (i-1.5)*del_lon
+  end do
 
   global_sum_of_wts = sum(wts_lat)
 
