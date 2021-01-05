@@ -47,9 +47,10 @@ integer :: is, ie, js, je
 !! namelist parameters
 
 real :: lat_value = 0.0
+real :: lon_value = 0.0
 logical :: global_average = .false.
 
-namelist / column_grid_nml / lat_value, global_average
+namelist / column_grid_nml / lat_value, lon_value, global_average
 
 contains
 
@@ -100,22 +101,27 @@ subroutine column_grid_init(num_lon_in, num_lat_in, longitude_origin, south_to_n
   call get_grid_domain(is, ie, js, je)
 
   allocate(deg_lon(num_lon))
-  do i=1, num_lon
-    deg_lon(i) = 180*longitude_origin_local/pi + (i-1) * total_degrees / float(num_lon)
-    if(deg_lon(i) .ge. total_degrees) then
-      deg_lon(i) = deg_lon(i) - total_degrees
-    endif
-    if(deg_lon(i) .lt. 0.0) then
-      deg_lon(i) = deg_lon(i) + total_degrees
-    endif
-  end do
+  if(num_lon .eq. 1) then
+    deg_lon(num_lon) = lon_value
+  else
+    do i=1, num_lon
+      deg_lon(i) = 180*longitude_origin_local/pi + (i-1) * total_degrees / float(num_lon)
+      if(deg_lon(i) .ge. total_degrees) then
+        deg_lon(i) = deg_lon(i) - total_degrees
+      endif
+      if(deg_lon(i) .lt. 0.0) then
+        deg_lon(i) = deg_lon(i) + total_degrees
+      endif
+    end do
+  end if
 
   allocate(deg_lat(num_lat))
-  allocate (sin_lat(lat_max))
-  allocate (cos_lat(lat_max))
-  allocate (cosm_lat(lat_max))
-  allocate (cosm2_lat(lat_max))
-  allocate (wts_lat(lat_max))
+  allocate(sin_lat(lat_max))
+  allocate(cos_lat(lat_max))
+  allocate(cosm_lat(lat_max))
+  allocate(cosm2_lat(lat_max))
+  allocate(wts_lat(lat_max))
+
   if(global_average) then
     if ((num_lat .ne. 1) .or.(num_lon .ne. 1)) then
       call error_mesg('column_grid_init', 'cannot set global_average = True with num_lat or num_lon .ne. 1', FATAL)
@@ -172,7 +178,8 @@ subroutine column_grid_init(num_lon_in, num_lat_in, longitude_origin, south_to_n
   ! this is done in transforms mod when spectral_dynamics is used
   allocate( lon_boundaries_global(num_lon+1) )
   allocate( lat_boundaries_global(lat_max+1) )
-  lat_boundaries_global(1) = 0.0
+
+  lat_boundaries_global(1) = -.5*pi !0.0
   if (num_lat .eq. 1) then
     lat_boundaries_global(2) = .5*pi
   else
@@ -190,7 +197,7 @@ subroutine column_grid_init(num_lon_in, num_lat_in, longitude_origin, south_to_n
 
   del_lon = 2 * pi / num_lon
   do i=1,num_lon+1
-    lon_boundaries_global(i) = longitude_origin_local + (i-1.5)*del_lon
+    lon_boundaries_global(i) = longitude_origin_local + (i-1.5) * del_lon
   end do
 
   global_sum_of_wts = sum(wts_lat)
