@@ -282,6 +282,7 @@ integer ::           &
      id_flux_u,      & ! surface flux of zonal mom.
      id_flux_v,      & ! surface flux of meridional mom.
      id_temp_2m,     & !mp586 for 10m winds and 2m temp
+     id_t_surf,      &
      id_u_10m,       & !mp586 for 10m winds and 2m temp
      id_v_10m,       & !mp586 for 10m winds and 2m temp
      id_q_2m,        & ! Add 2m humidity
