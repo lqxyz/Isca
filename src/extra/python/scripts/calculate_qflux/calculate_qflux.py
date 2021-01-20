@@ -244,7 +244,7 @@ def check_surface_flux_dims(dataset):
 
     try:
         # RRTM: flux_sw (time, lat, lon), Net SW surface flux
-        # https://github.com/ExeClim/Isca/blob/90208a3/src/atmos_param/socrates/interface/socrates_interface.F90#L266
+        # https://github.com/ExeClim/Isca/blob/24e1fe9/src/atmos_param/rrtm_radiation/rrtm_radiation.f90#L292
         #
         # Gray: flux_sw (time, phalf, lat, lon), Net shortwave radiative flux (positive up)
         # https://github.com/ExeClim/Isca/blob/bda63f0/src/atmos_param/two_stream_gray_rad/two_stream_gray_rad.F90#L346
