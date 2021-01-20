@@ -84,7 +84,7 @@ def read_data( base_dir, exp_name, start_file, end_file, avg_or_daily, use_inter
 
         for name in names_dict.keys():
             try:                        
-                da_3d.rename({name:names_dict[name]}, inplace=True)
+                da_3d = da_3d.rename({name:names_dict[name]})
             except ValueError:
                 pass       
 
@@ -109,8 +109,6 @@ def read_data( base_dir, exp_name, start_file, end_file, avg_or_daily, use_inter
     
     da_3d.coords['two_months'] = (('time'),two_months_arr)
     da_3d.coords['two_months_ax'] = (('two_months_ax'),np.unique(two_months_arr))
-
-
 
     da_3d.coords['all_time'] = (('time'),time_arr/time_arr)
 
@@ -140,9 +138,6 @@ def read_data( base_dir, exp_name, start_file, end_file, avg_or_daily, use_inter
         else:        
             da_3d['precip']=(('time','lat','lon'),da_3d['convection_rain']+da_3d['condensation_rain'])
             print('done aggregating rain')
-
-
-
 
     thd_data = da_3d
 
@@ -210,12 +205,12 @@ def read_land( base_dir,exp_name,land_present, use_interpolated_pressure_level_d
     
     if land_file is not None:
         if(land_present or use_interpolated_pressure_level_data):
-            nc_file = base_dir+'exp/'+exp_name+land_file
+            nc_file = os.path.join(base_dir, 'exp', exp_name, land_file)
             print(nc_file)
             try:
                 fh = Dataset(nc_file, mode='r')
             except (OSError, RuntimeError):
-                nc_file = base_dir+exp_name+land_file
+                nc_file = os.path.join(base_dir, exp_name, land_file)
                 fh = Dataset(nc_file, mode='r')
             if land_present:
                 try:
@@ -227,7 +222,6 @@ def read_land( base_dir,exp_name,land_present, use_interpolated_pressure_level_d
                         lat_land = fh.variables['latitude'][:]
                     except:
                         lat_land = fh.variables['lat'][:]
-                        
                 
                     if lats_in[0]!=lat_land[0]:
                         land_array=land_array[::-1,:]
