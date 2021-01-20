@@ -1,5 +1,5 @@
 """A method for calculating seasonally-varying qfluxes, as described in Russell et al 1985 DOI:10.1016/0377-0265(85)90022-3"""
-    
+
 import numpy as np
 import xarray
 from xarray import ufuncs as xruf
@@ -13,7 +13,6 @@ import os
 import pdb
 
 __author__='Stephen Thomson'
-
 
 def qflux_calc(dataset, model_params, output_file_name, ice_file_name=None, groupby_name='months'):
 
@@ -113,7 +112,7 @@ def upper_ocean_heat_content(dataset, model_params, time_varying_ice, dayofyear_
     
      """
     print('doing upper ocean heat content and rate of change calculation')
-    sst_data=dataset['t_surf'].groupby(dayofyear_or_months).mean('time').load()
+    sst_data = dataset['t_surf'].groupby(dayofyear_or_months).mean('time').load()
 
     if dayofyear_or_months=='months':
         dataset['sst_clim'] = (('months_ax','lat','lon'), sst_data)
@@ -121,7 +120,7 @@ def upper_ocean_heat_content(dataset, model_params, time_varying_ice, dayofyear_
     else:
         dataset['sst_clim_'+dayofyear_or_months] = ((dayofyear_or_months+'_ax','lat','lon'), sst_data)
         sst_clim = dataset['sst_clim_'+dayofyear_or_months]
-        dataset['sst_clim']=((dayofyear_or_months+'_ax','lat','lon'), sst_data)
+        dataset['sst_clim'] = ((dayofyear_or_months+'_ax','lat','lon'), sst_data)
 
     # weighted_sst_data = model_params['ocean_rho'] * model_params['ocean_cp'] * model_params['ml_depth'] * sst_data * (1.0 - dataset['land'])
     weighted_sst_data = model_params['ocean_rho'] * model_params['ocean_cp'] * model_params['ml_depth'] * sst_clim * (1.0 - dataset['land'])
@@ -178,7 +177,6 @@ def net_surf_energy_flux(dataset, model_params, dayofyear_or_months='months'):
 
     flux_lhe_data = dataset['flux_lhe'].groupby(dayofyear_or_months).mean('time')
     dataset['flux_lhe_clim'] = ((dayofyear_or_months+'_ax','lat','lon'), flux_lhe_data)
-
 
     aav.area_average(dataset, 'flux_sw_clim', model_params, land_ocean_all='ocean_non_ice', axis_in=dayofyear_or_months+'_ax')
     aav.area_average(dataset, 'flux_lw_clim', model_params, land_ocean_all='ocean_non_ice', axis_in=dayofyear_or_months+'_ax')
@@ -252,14 +250,12 @@ def check_surface_flux_dims(dataset):
         #
         # Gray: flux_sw (time, phalf, lat, lon), Net shortwave radiative flux (positive up)
         # https://github.com/ExeClim/Isca/blob/master/src/atmos_param/two_stream_gray_rad/two_stream_gray_rad.F90#L346
-
         flux_dims = dataset['flux_sw'].dims
     except:
         # SOCRATES: soc_surf_flux_sw (time, lat, lon), socrates Net SW surface flux (down)
         # https://github.com/ExeClim/Isca/blob/master/src/atmos_param/socrates/interface/socrates_interface.F90#L266
-
         flux_dims = dataset['soc_surf_flux_sw'].dims
-        # Rename the SOC surf_flux name so that consistent with RRTM and gray radiation
+        # Rename the SOCRATES surf_flux name to be consistent with RRTM and gray radiation schemes
         dataset = dataset.rename({'soc_surf_flux_sw':'flux_sw'})
 
     if 'phalf' in flux_dims:
@@ -283,7 +279,7 @@ def check_surface_flux_dims(dataset):
             # grey radiation 'flux_lw' is the net lw flux in 3D. So we take the lwdn_sfc output from grey rad and rename it
             # flux_lw. 
             dataset['lwdn_sfc']
-            dataset = dataset.rename({'lwdn_sfc':'flux_lw'}) #, inplace=True)
+            dataset = dataset.rename({'lwdn_sfc':'flux_lw'})
         except:
             # If lwdn_sfc is not available, then we re-calculate it from flux_lw by adding back sigma*t_surf**4, then call it flux_lw
             print('lwdn_sfc not present when using grey radiation, so re-calculating it from flux_lw.')
@@ -342,3 +338,4 @@ if __name__ == "__main__":
     dataset = check_surface_flux_dims(dataset)
     
     qflux_calc(dataset, model_params, output_file_name, ice_file_name, groupby_name=time_divisions_of_qflux_to_be_calculated)
+
