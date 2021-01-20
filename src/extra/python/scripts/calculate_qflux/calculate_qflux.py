@@ -12,11 +12,11 @@ import matplotlib.pyplot as plt
 import os
 import pdb
 
-__author__='Stephen Thomson'
+__author__ = 'Stephen Thomson'
 
 def qflux_calc(dataset, model_params, output_file_name, ice_file_name=None, groupby_name='months'):
 
-    if groupby_name=='months':
+    if groupby_name == 'months':
         time_varying_ice = ice_mask_calculation(dataset, dataset.land, ice_file_name)
         upper_ocean_heat_content(dataset, model_params, time_varying_ice)
         net_surf_energy_flux(dataset, model_params)
@@ -27,7 +27,7 @@ def qflux_calc(dataset, model_params, output_file_name, ice_file_name=None, grou
         output_dict = {'manual_grid_option':False, 'is_thd':False, 'num_years':1., 'time_spacing_days':12,
                        'file_name':output_file_name+'.nc', 'var_name':output_file_name}
         
-    elif groupby_name=='dayofyear':
+    elif groupby_name == 'dayofyear':
         time_varying_ice = ice_mask_calculation(dataset, dataset.land, ice_file_name)
         upper_ocean_heat_content(dataset, model_params, time_varying_ice, dayofyear_or_months='dayofyear')
         net_surf_energy_flux(dataset, model_params)
@@ -37,7 +37,7 @@ def qflux_calc(dataset, model_params, output_file_name, ice_file_name=None, grou
         output_dict = {'manual_grid_option':False, 'is_thd':False, 'num_years':1., 'time_spacing_days':12,
                        'file_name':output_file_name+'.nc', 'var_name':output_file_name}
         
-    elif groupby_name=='all_time':
+    elif groupby_name == 'all_time':
         time_varying_ice = ice_mask_calculation(dataset, dataset.land, ice_file_name, dayofyear_or_months=groupby_name)
         upper_ocean_heat_content(dataset, model_params, time_varying_ice, dayofyear_or_months=groupby_name)
         net_surf_energy_flux(dataset, model_params, dayofyear_or_months=groupby_name)
@@ -61,7 +61,7 @@ def ice_mask_calculation(dataset, land_array, ice_file_name, dayofyear_or_months
     try:
         ice_climatology = dataset['ice_conc'].groupby(dayofyear_or_months).mean('time').load()
         ice_array = ice_climatology.values
-        ice_idx = ice_array !=0.
+        ice_idx = ice_array != 0.
         ice_array[ice_idx] = 1.0
         time_varying_ice = True
         print('have gotten ice concentration from climatology')
@@ -114,7 +114,7 @@ def upper_ocean_heat_content(dataset, model_params, time_varying_ice, dayofyear_
     print('doing upper ocean heat content and rate of change calculation')
     sst_data = dataset['t_surf'].groupby(dayofyear_or_months).mean('time').load()
 
-    if dayofyear_or_months=='months':
+    if dayofyear_or_months == 'months':
         dataset['sst_clim'] = (('months_ax','lat','lon'), sst_data)
         sst_clim = dataset['sst_clim']
     else:
@@ -131,12 +131,12 @@ def upper_ocean_heat_content(dataset, model_params, time_varying_ice, dayofyear_
     nx = shape1[2]
     d_weighted_sst_data_dt = np.zeros_like(weighted_sst_data)
 
-    if dayofyear_or_months=='dayofyear':
+    if dayofyear_or_months == 'dayofyear':
         delta_t = model_params['day_length']
-    elif dayofyear_or_months=='months':
-        delta_t = model_params['day_length']*30.
+    elif dayofyear_or_months == 'months':
+        delta_t = model_params['day_length'] * 30.
 
-    if dayofyear_or_months!='all_time':
+    if dayofyear_or_months != 'all_time':
         for x in range(nx):
             for y in range(ny):
                 d_weighted_sst_data_dt[:,y,x] = time_gradient(weighted_sst_data[:,y,x], delta_t)
@@ -147,7 +147,7 @@ def upper_ocean_heat_content(dataset, model_params, time_varying_ice, dayofyear_
         else:
             d_weighted_sst_data_dt[time_tick,:,:] = d_weighted_sst_data_dt[time_tick,:,:] * (1.0 - dataset['land_ice_mask'].values)
 
-    if dayofyear_or_months=='dayofyear':
+    if dayofyear_or_months == 'dayofyear':
         dataset['d_weighted_sst_data_dt_days'] = (('dayofyear_ax','lat','lon'), d_weighted_sst_data_dt)
         months_on_dayofyear_ax = dataset.months.groupby('dayofyear').mean('time').values
         dataset.coords['months_on_dayofyear_ax'] = (('dayofyear_ax'), months_on_dayofyear_ax)
@@ -155,10 +155,10 @@ def upper_ocean_heat_content(dataset, model_params, time_varying_ice, dayofyear_
         monthly_values = dataset['d_weighted_sst_data_dt_days'].groupby('months_on_dayofyear_ax').mean('dayofyear_ax')
         dataset['d_weighted_sst_data_dt_months_from_days'] = (('months_ax','lat','lon'), monthly_values)    
 
-    elif dayofyear_or_months=='months':
+    elif dayofyear_or_months == 'months':
         dataset['d_weighted_sst_data_dt'] = (('months_ax','lat','lon'), d_weighted_sst_data_dt)    
 
-    elif dayofyear_or_months=='all_time':
+    elif dayofyear_or_months == 'all_time':
         dataset['d_weighted_sst_data_dt'] = (('all_time_ax','lat','lon'), d_weighted_sst_data_dt)    
 
 def net_surf_energy_flux(dataset, model_params, dayofyear_or_months='months'):
@@ -210,7 +210,7 @@ def deep_ocean_heat_content(dataset, model_params, dayofyear_or_months='months')
     aav.area_average(dataset, 'd_weighted_sst_data_dt', model_params, land_ocean_all='ocean_non_ice', axis_in=dayofyear_or_months+'_ax')
     d_deep_ocean_dt = dataset['net_surf_energy_fl_area_av_ocean_non_ice'] - dataset['d_weighted_sst_data_dt_area_av_ocean_non_ice']
 
-    dataset['d_deep_ocean_dt']=(dataset['net_surf_energy_fl_area_av_ocean_non_ice'].dims, d_deep_ocean_dt)    
+    dataset['d_deep_ocean_dt'] = (dataset['net_surf_energy_fl_area_av_ocean_non_ice'].dims, d_deep_ocean_dt)
 
 def ocean_transport(dataset, model_params, dayofyear_or_months='months'):
 
@@ -227,15 +227,13 @@ def regrid_in_time(dataset, groupby_name):
 
     ocean_heat_flux_shape = dataset['masked_ocean_transport'].shape
 
-    if ocean_heat_flux_shape[0]!=12 and groupby_name=='all_time':
-    
+    if ocean_heat_flux_shape[0] != 12 and groupby_name == 'all_time':
         dataset_to_repeat = dataset['masked_ocean_transport'].load()
-        
         dataset_to_output = np.zeros((12, ocean_heat_flux_shape[1], ocean_heat_flux_shape[2]))
-        
+
         for i in range(12):
             dataset_to_output[i,...] = dataset_to_repeat
-        
+
         dataset['masked_ocean_transport'] = (('months_ax','lat','lon'), dataset_to_output)
 
 def check_surface_flux_dims(dataset):
@@ -338,4 +336,3 @@ if __name__ == "__main__":
     dataset = check_surface_flux_dims(dataset)
     
     qflux_calc(dataset, model_params, output_file_name, ice_file_name, groupby_name=time_divisions_of_qflux_to_be_calculated)
-
