@@ -254,7 +254,7 @@ def check_surface_flux_dims(dataset):
         # https://github.com/ExeClim/Isca/blob/90208a3/src/atmos_param/socrates/interface/socrates_interface.F90#L266
         flux_dims = dataset['soc_surf_flux_sw'].dims
         # Rename the SOCRATES surf_flux name to be consistent with RRTM and gray radiation schemes
-        dataset = dataset.rename({'soc_surf_flux_sw':'flux_sw'})
+        dataset['flux_sw'] = -dataset['soc_surf_flux_sw'] # Change from positive down to positive up
 
     if 'phalf' in flux_dims:
         dataset = dataset.rename({'flux_sw':'flux_sw'+'_3d'})
@@ -266,9 +266,9 @@ def check_surface_flux_dims(dataset):
     try:
         flux_dims_lw = dataset['flux_lw'].dims
     except:
-        # SOCRATES: soc_surf_flux_lw (time, lat, lon)
-        flux_dims_lw = dataset['soc_surf_flux_lw'].dims
-        dataset = dataset.rename({'soc_surf_flux_lw':'flux_lw'})
+        # SOCRATES: soc_surf_flux_lw_down (time, lat, lon), socrates LW surface flux down
+        flux_dims_lw = dataset['soc_surf_flux_lw_down'].dims
+        dataset = dataset.rename({'soc_surf_flux_lw_down':'flux_lw'})
 
     if 'phalf' in flux_dims_lw:
         dataset = dataset.rename({'flux_lw':'flux_lw'+'_3d'})
