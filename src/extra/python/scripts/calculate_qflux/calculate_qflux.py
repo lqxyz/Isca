@@ -236,7 +236,7 @@ def regrid_in_time(dataset, groupby_name):
 
         dataset['masked_ocean_transport'] = (('months_ax','lat','lon'), dataset_to_output)
 
-def check_surface_flux_dims(dataset):
+def check_surface_flux_dims(dataset, model_params):
     ''' This surface flux checker is designed to decide if we're using grey rad or not. If we're using grey rad then the definition
     of flux_sw and flux_lw are different to RRTM. The script was written to use RRTM output, so it changes variable names etc to be 
     equivalent to RRTM definitions.
@@ -257,9 +257,8 @@ def check_surface_flux_dims(dataset):
     # RRTM: flux_sw (time, lat, lon), net SW surface flux
     # https://github.com/ExeClim/Isca/blob/24e1fe9/src/atmos_param/rrtm_radiation/rrtm_radiation.f90#L292
     #
-    # Gray: flux_sw (time, phalf, lat, lon), net shortwave radiative flux (positive up)
+    # Gray: flux_sw (time, phalf, lat, lon), net SW radiative flux (positive up)
     # https://github.com/ExeClim/Isca/blob/bda63f0/src/atmos_param/two_stream_gray_rad/two_stream_gray_rad.F90#L346
-
     flux_dims = dataset['flux_sw'].dims
 
     if 'phalf' in flux_dims:
@@ -272,7 +271,7 @@ def check_surface_flux_dims(dataset):
     # RRTM: flux_lw (time, lat, lon), LW surface flux
     # https://github.com/ExeClim/Isca/blob/24e1fe9/src/atmos_param/rrtm_radiation/rrtm_radiation.f90#L296
     #
-    # Gray: flux_lw (time, phalf, lat, lon), Net longwave radiative flux (positive up)
+    # Gray: flux_lw (time, phalf, lat, lon), net LW radiative flux (positive up)
     # https://github.com/ExeClim/Isca/blob/bda63f0/src/atmos_param/two_stream_gray_rad/two_stream_gray_rad.F90#L342
     flux_dims_lw = dataset['flux_lw'].dims
 
@@ -339,6 +338,6 @@ if __name__ == "__main__":
     land_array, topo_array = io.read_land(input_dir, base_exp_name, land_present, use_interpolated_pressure_level_data, size_list, land_file)
     dataset['land'] = (('lat','lon'), land_array)
 
-    dataset = check_surface_flux_dims(dataset)
+    dataset = check_surface_flux_dims(dataset, model_params)
     
     qflux_calc(dataset, model_params, output_file_name, ice_file_name, groupby_name=time_divisions_of_qflux_to_be_calculated)
