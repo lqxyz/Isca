@@ -242,19 +242,25 @@ def check_surface_flux_dims(dataset):
     equivalent to RRTM definitions.
     '''
 
+    # Rename the Socrates fluxes
     try:
-        # RRTM: flux_sw (time, lat, lon), Net SW surface flux
-        # https://github.com/ExeClim/Isca/blob/24e1fe9/src/atmos_param/rrtm_radiation/rrtm_radiation.f90#L292
-        #
-        # Gray: flux_sw (time, phalf, lat, lon), Net shortwave radiative flux (positive up)
-        # https://github.com/ExeClim/Isca/blob/bda63f0/src/atmos_param/two_stream_gray_rad/two_stream_gray_rad.F90#L346
-        flux_dims = dataset['flux_sw'].dims
+        # Socrates: soc_flux_sw (time, phalf, lat, lon), Socrates net SW flux (up)
+        # https://github.com/ExeClim/Isca/blob/90208a3/src/atmos_param/socrates/interface/socrates_interface.F90#L296
+        dataset = dataset.rename({'soc_flux_sw':'flux_sw'})
+
+        # Socrates: soc_flux_lw (time, phalf, lat, lon), Socrates net LW flux (up)
+        # https://github.com/ExeClim/Isca/blob/90208a3/src/atmos_param/socrates/interface/socrates_interface.F90#L291
+        dataset = dataset.rename({'soc_flux_lw':'flux_lw'})
     except:
-        # SOCRATES: soc_surf_flux_sw (time, lat, lon), socrates Net SW surface flux (down)
-        # https://github.com/ExeClim/Isca/blob/90208a3/src/atmos_param/socrates/interface/socrates_interface.F90#L266
-        flux_dims = dataset['soc_surf_flux_sw'].dims
-        # Rename the SOCRATES surf_flux name to be consistent with RRTM and gray radiation schemes
-        dataset['flux_sw'] = -dataset['soc_surf_flux_sw'] # Change from positive down to positive up
+        print('Not Socrates raditation scheme.')
+
+    # RRTM: flux_sw (time, lat, lon), net SW surface flux
+    # https://github.com/ExeClim/Isca/blob/24e1fe9/src/atmos_param/rrtm_radiation/rrtm_radiation.f90#L292
+    #
+    # Gray: flux_sw (time, phalf, lat, lon), net shortwave radiative flux (positive up)
+    # https://github.com/ExeClim/Isca/blob/bda63f0/src/atmos_param/two_stream_gray_rad/two_stream_gray_rad.F90#L346
+
+    flux_dims = dataset['flux_sw'].dims
 
     if 'phalf' in flux_dims:
         dataset = dataset.rename({'flux_sw':'flux_sw'+'_3d'})
@@ -263,12 +269,12 @@ def check_surface_flux_dims(dataset):
         new_dims = ('time','lat','lon')
         dataset['flux_sw'] = (new_dims, flux_at_bottom_phalf_level)
 
-    try:
-        flux_dims_lw = dataset['flux_lw'].dims
-    except:
-        # SOCRATES: soc_surf_flux_lw_down (time, lat, lon), socrates LW surface flux down
-        flux_dims_lw = dataset['soc_surf_flux_lw_down'].dims
-        dataset = dataset.rename({'soc_surf_flux_lw_down':'flux_lw'})
+    # RRTM: flux_lw (time, lat, lon), LW surface flux
+    # https://github.com/ExeClim/Isca/blob/24e1fe9/src/atmos_param/rrtm_radiation/rrtm_radiation.f90#L296
+    #
+    # Gray: flux_lw (time, phalf, lat, lon), Net longwave radiative flux (positive up)
+    # https://github.com/ExeClim/Isca/blob/bda63f0/src/atmos_param/two_stream_gray_rad/two_stream_gray_rad.F90#L342
+    flux_dims_lw = dataset['flux_lw'].dims
 
     if 'phalf' in flux_dims_lw:
         dataset = dataset.rename({'flux_lw':'flux_lw'+'_3d'})
@@ -282,7 +288,7 @@ def check_surface_flux_dims(dataset):
             # If lwdn_sfc is not available, then we re-calculate it from flux_lw by adding back sigma*t_surf**4, then call it flux_lw
             print('lwdn_sfc not present when using grey radiation, so re-calculating it from flux_lw.')
             max_pressure = dataset.phalf.max()
-            lwdn_sfc = dataset.flux_lw_3d.sel(phalf=max_pressure) + sigma_sb * dataset.t_surf**4.
+            lwdn_sfc = -dataset.flux_lw_3d.sel(phalf=max_pressure) + model_params['sigma_sb'] * dataset.t_surf**4.
             new_dims = ('time','lat','lon')
             dataset['flux_lw'] = (new_dims, lwdn_sfc)
 
