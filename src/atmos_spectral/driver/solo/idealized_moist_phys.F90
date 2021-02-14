@@ -1386,6 +1386,7 @@ if(turb) then
   if(mixed_layer_bc) then
     call mixed_layer(                Time,    &
                            Time+Time_step,    &
+                                   js, je,    &
                               t_surf(:,:),    & ! t_surf is intent(inout)
                               flux_t(:,:),    &
                               flux_q(:,:),    &
