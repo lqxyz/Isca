@@ -13,6 +13,9 @@ atmos_param/stable_bl_turb/stable_bl_turb.F90
 atmos_param/strat_cloud/null/strat_cloud.F90
 atmos_param/cloud_simple/cloud_simple.F90
 atmos_param/cloud_simple/lcl.F90
+atmos_param/cloud_simple/large_scale_cloud.F90
+atmos_param/cloud_simple/marine_strat_cloud.F90
+atmos_param/cloud_simple/cloud_cover_diags.F90
 atmos_param/COSPv2.0/subsample_and_optics_example/subcol/prec_scops.F90
 atmos_param/COSPv2.0/subsample_and_optics_example/subcol/rng/mo_rng.F90
 atmos_param/COSPv2.0/subsample_and_optics_example/subcol/scops.F90
