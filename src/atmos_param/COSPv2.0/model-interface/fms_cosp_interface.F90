@@ -513,7 +513,6 @@ module fms_cosp_interface_mod
                     rh_cosp, cf_rad_cosp, reff_rad_cosp, qcl_rad_cosp,       &
                     ls_cloud_absorptivity_cosp, cnv_cloud_absorptivity_cosp, &
                     ls_cloud_extinction_cosp, cnv_cloud_extinction_cosp,     &
-                    ls_cloud_tau_cosp, cnv_cloud_tau_cosp,                   &
                     cond_dt_qg_cosp, conv_dt_qg_cosp
     real(wp), dimension(size(temp_in,1),size(temp_in,2),size(temp_in,3)+1) :: p_half_cosp, z_half_cosp
     real(wp), dimension(size(temp_in,1),size(temp_in,2)) :: &
@@ -690,19 +689,8 @@ module fms_cosp_interface_mod
     !flux_cc_rain = 0.0
     flux_cc_snow = 0.0
 
-    ! change extinction to optical depth
-    ! rho*k*dz = rho*k*dp/(rho*g) = k*dp/g
-    ! check the sign, pos or neg?
-    do k=Nlevels,1,-1
-      dp = p_half_cosp(:,:,k+1) - p_half_cosp(:,:,k)
-      ls_cloud_tau_cosp(:,:,k) = ls_cloud_extinction_cosp(:,:,k) * dp / grav
-      cnv_cloud_tau_cosp(:,:,k) = cnv_cloud_extinction_cosp(:,:,k) * dp / grav
-      where ( ls_cloud_tau_cosp(:,:,k) < 0)  ls_cloud_tau_cosp(:,:,k) = 0.0
-      where (cnv_cloud_tau_cosp(:,:,k) < 0) cnv_cloud_tau_cosp(:,:,k) = 0.0
-    enddo
-
-    dtau_strat = ls_cloud_tau_cosp
-    dtau_conv = cnv_cloud_tau_cosp
+    dtau_strat = ls_cloud_extinction_cosp
+    dtau_conv = cnv_cloud_extinction_cosp
     dlw_emissivity_strat = ls_cloud_absorptivity_cosp
     dlw_emissivity_conv = cnv_cloud_absorptivity_cosp
 
