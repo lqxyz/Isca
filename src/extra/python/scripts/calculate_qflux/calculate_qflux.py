@@ -126,8 +126,7 @@ def upper_ocean_heat_content(dataset, model_params, time_varying_ice, dayofyear_
         sst_clim = dataset['sst_clim_'+dayofyear_or_months]
         dataset['sst_clim'] = ((dayofyear_or_months+'_ax','lat','lon'), sst_data)
 
-    weighted_sst_data = model_params['ocean_rho'] * model_params['ocean_cp'] * \
-                        model_params['ml_depth'] * sst_clim * (1.0 - dataset['land'])
+    weighted_sst_data = model_params['ocean_rho'] * model_params['ocean_cp'] * model_params['ml_depth'] * sst_clim * (1.0 - dataset['land'])
 
     shape1 = np.shape(weighted_sst_data)
 
@@ -147,11 +146,9 @@ def upper_ocean_heat_content(dataset, model_params, time_varying_ice, dayofyear_
 
     for time_tick in range(shape1[0]):
         if time_varying_ice:
-            d_weighted_sst_data_dt[time_tick,:,:] = d_weighted_sst_data_dt[time_tick,:,:] * \
-                                                    (1.0 - dataset['land_ice_mask'].values[time_tick,:,:])
+            d_weighted_sst_data_dt[time_tick,:,:] = d_weighted_sst_data_dt[time_tick,:,:] * (1.0 - dataset['land_ice_mask'].values[time_tick,:,:])
         else:
-            d_weighted_sst_data_dt[time_tick,:,:] = d_weighted_sst_data_dt[time_tick,:,:] * \
-                                                    (1.0 - dataset['land_ice_mask'].values)
+            d_weighted_sst_data_dt[time_tick,:,:] = d_weighted_sst_data_dt[time_tick,:,:] * (1.0 - dataset['land_ice_mask'].values)
 
     if dayofyear_or_months == 'dayofyear':
         dataset['d_weighted_sst_data_dt_days'] = (('dayofyear_ax','lat','lon'), d_weighted_sst_data_dt)
@@ -218,8 +215,7 @@ def deep_ocean_heat_content(dataset, model_params, dayofyear_or_months='months')
     print('doing deep ocean heat content')
     aav.area_average(dataset, 'd_weighted_sst_data_dt', model_params,
             land_ocean_all='ocean_non_ice', axis_in=dayofyear_or_months+'_ax')
-    d_deep_ocean_dt = dataset['net_surf_energy_fl_area_av_ocean_non_ice'] - \
-                      dataset['d_weighted_sst_data_dt_area_av_ocean_non_ice']
+    d_deep_ocean_dt = dataset['net_surf_energy_fl_area_av_ocean_non_ice'] - dataset['d_weighted_sst_data_dt_area_av_ocean_non_ice']
 
     dataset['d_deep_ocean_dt'] = (dataset['net_surf_energy_fl_area_av_ocean_non_ice'].dims, d_deep_ocean_dt)
 
@@ -355,15 +351,12 @@ if __name__ == "__main__":
 
     model_params = sagp.model_params_set(input_dir, delta_t=720., ml_depth=20., res=42)
 
-    dataset, time_arr, size_list = io.read_data(base_dir, exp_name, start_file, end_file,
-                                   avg_or_daily, use_interpolated_pressure_level_data)
+    dataset, time_arr, size_list = io.read_data(base_dir, exp_name, start_file, end_file, avg_or_daily, use_interpolated_pressure_level_data)
 
-    land_array, topo_array = io.read_land(input_dir, base_exp_name, land_present,
-                             use_interpolated_pressure_level_data, size_list, land_file)
+    land_array, topo_array = io.read_land(input_dir, base_exp_name, land_present, use_interpolated_pressure_level_data, size_list, land_file)
     dataset['land'] = (('lat','lon'), land_array)
 
     dataset = check_surface_flux_dims(dataset, model_params)
 
-    qflux_calc(dataset, model_params, output_file_name, ice_file_name,
-               groupby_name=time_divisions_of_qflux_to_be_calculated)
+    qflux_calc(dataset, model_params, output_file_name, ice_file_name, groupby_name=time_divisions_of_qflux_to_be_calculated)
 
